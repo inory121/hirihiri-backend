@@ -5,18 +5,27 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.crypto.digest.DigestAlgorithm;
 import cn.hutool.crypto.digest.Digester;
 import cn.hutool.jwt.JWTUtil;
+import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class MyJwtUtil {
 
+    // jwt默认过期时间设置为当前时间加上5天
+    public static final long JWT_DEFAULT_EXPIRE_TIME = DateUtil.current() + 1000 * 60 * 60 * 24 * 10;
+
     @Value("${jwt.secret}")
     private String secretKey;
+
+    @Resource
+    RedisUtil redisUtil;
 
     /**
      * 创建JWT令牌
@@ -28,7 +37,9 @@ public class MyJwtUtil {
         // 使用SHA-256算法增强密钥强度
         byte[] enhancedSecretKey = sha256(secretKey);
 
-        return JWTUtil.createToken(claims, enhancedSecretKey);
+        String token = JWTUtil.createToken(claims, enhancedSecretKey);
+        redisUtil.setWithExpire("token:user:" + claims.get("uid"), token, TimeUnit.SECONDS);
+        return token;
     }
 
     /**
@@ -49,9 +60,9 @@ public class MyJwtUtil {
      */
     public String createDefaultJwtToken(Map<String, Object> customClaims) {
         Map<String, Object> defaultClaims = new HashMap<>(Map.of(
-                "uid", "1",
-                "role", "normal",
-                "exp", DateUtil.current() + 1000 * 60 * 60 * 24 * 5 // 当前时间加上5天
+                "jti", UUID.randomUUID().toString(),
+                "role", "user",
+                "exp", JWT_DEFAULT_EXPIRE_TIME
         ));
         if (Objects.nonNull(customClaims)) {
             defaultClaims.putAll(customClaims);

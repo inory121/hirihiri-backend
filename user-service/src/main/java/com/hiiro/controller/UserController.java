@@ -6,10 +6,7 @@ import com.hiiro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 
@@ -47,5 +44,16 @@ public class UserController {
     @PostMapping("/login")
     public ResultData<HashMap<String, Object>> login(@RequestBody User user) {
         return userService.login(user);
+    }
+
+    @Operation(summary = "登出")
+    @PostMapping("/logout")
+    public ResultData<String> logout(@RequestHeader(name = "Authorization") String authorization) {
+        return userService.logout(authorization);
+    }
+
+    @PostMapping("/test")
+    public ResultData<String> getUser() {
+        return ResultData.success("success");
     }
 }

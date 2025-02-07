@@ -56,10 +56,12 @@ public class UserSecurityConfig {
                                                 "/v3/**", "/webjars/**"
                                         )
 //                                authorizeRequests.requestMatchers("**")
-                                        .permitAll()
+                                        .anonymous()
+//                                        .permitAll()
                                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)
+//                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new UserAuthenticationEntryPoint()))
 //                .formLogin(form ->form.loginPage("/user/login").permitAll())
 //                .httpBasic(Customizer.withDefaults())
                 .build();
@@ -78,7 +80,7 @@ public class UserSecurityConfig {
 
                 if (userDetailsOptional.isEmpty() || !passwordEncoder().matches(password, userDetailsOptional.get().getPassword())) {
                     // 用户不存在或密码匹配失败抛出异常
-                    throw new UserException(ResultCodeEnum.USERNAME_OR_PASSWORD_ERROR,"用户名或密码验证失败!");
+                    throw new UserException(ResultCodeEnum.USERNAME_OR_PASSWORD_ERROR, "用户名或密码验证失败!");
 //                    throw new BadCredentialsException("用户名或密码验证失败!");
                 }
 

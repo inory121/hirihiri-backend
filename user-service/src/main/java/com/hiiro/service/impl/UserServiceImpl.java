@@ -18,6 +18,7 @@ import jakarta.annotation.Resource;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -97,8 +98,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public ResultData<HashMap<String, Object>> login(User user) {
         // 创建一个UsernamePasswordAuthenticationToken对象，用于认证用户
-        UsernamePasswordAuthenticationToken authenticationToken =
-                new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword());
+        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword());
         // 使用authenticationProvider对提供的用户名和密码进行验证
         Authentication authenticate = authenticationProvider.authenticate(authenticationToken);
         // 获取认证通过后的用户详细信息
@@ -109,20 +109,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 将用户ID（UID）转换为字符串形式，以便放入JWT令牌中
         String uid = String.valueOf(loginUser.getUser().getUid());
         // 创建默认的JWT令牌，其中包含用户的UID作为声明的一部分
-        String token = jwtUtil.createDefaultJwtToken(new HashMap<>(Map.of(
-                "uid", uid
-        )));
+        String token = jwtUtil.createDefaultJwtToken(new HashMap<>(Map.of("uid", uid)));
         // 更新用户登录状态
         if (updateUserById(loginUser.getUser().getUid()) == 1) {
             // 登陆成功并成功更新登陆状态后将用户信息存入redis
             redisUtil.setWithExpire("user:" + uid, loginUser.getUser(), TimeUnit.SECONDS);
-
-
             // 返回token和用户信息给前端
-            return ResultData.success(new HashMap<String, Object>(Map.of(
-                    "user", BeanUtil.copyProperties(getUserByUsername(loginUser.getUsername()), UserDTO.class),
-                    "token", token
-            )), "登陆成功!");
+            return ResultData.success(new HashMap<String, Object>(Map.of("user", BeanUtil.copyProperties(getUserByUsername(loginUser.getUsername()), UserDTO.class), "token", token)), "登陆成功!");
         } else {
             throw new UserException(ResultCodeEnum.DATABASE_UPDATE_ERROR, "更新用户登陆状态失败!");
         }
@@ -155,6 +148,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public int updateUserById(User user) {
         return userMapper.updateById(user);
+    }
+
+    @Override
+    public ResultData<String> logout(String authorization) {
+        //从SecurityContextHolder获取用户信息
+        User loginUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (Objects.nonNull(loginUser)) {
+            //从请求头获取Authorization并提取token
+            String token = authorization.substring(7);
+            //从jwt中获取jti
+            Object jti = jwtUtil.getClaimFromToken(token, "jti");
+            //删除redis存储的用户信息和token
+            if (redisUtil.delete("user:" + loginUser.getUid(), "token:user:" + loginUser.getUid())) {
+                //把已删除的token的jti存入黑名单,防止token过期前有人继续用旧token
+                redisUtil.setWithExpire("blacklist:user:" + loginUser.getUid() + ":" + jti, jti, TimeUnit.SECONDS);
+                return ResultData.success("用户登出成功");
+            }
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户已登出");
+        }
+        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户未登录");
     }
 
 }

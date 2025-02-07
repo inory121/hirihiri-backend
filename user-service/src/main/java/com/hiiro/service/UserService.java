@@ -25,4 +25,6 @@ public interface UserService extends IService<User> {
     int updateUserById(Long uid);
 
     int updateUserById(User user);
+
+    ResultData<String> logout(String authorization);
 }

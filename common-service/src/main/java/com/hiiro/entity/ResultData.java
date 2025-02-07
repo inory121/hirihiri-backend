@@ -30,10 +30,18 @@ public class ResultData<T> {
         return resultData;
     }
 
-    public static <T> ResultData<T> fail(int code, String message) {
+    public static <T> ResultData<T> fail(ResultCodeEnum resultCodeEnum, String message) {
         ResultData<T> resultData = new ResultData<>();
-        resultData.setCode(code);
+        resultData.setCode(resultCodeEnum.getCode());
         resultData.setMessage(message);
         return resultData;
     }
+
+    public static <T> ResultData<T> fail(ResultCodeEnum resultCodeEnum) {
+        ResultData<T> resultData = new ResultData<>();
+        resultData.setCode(resultCodeEnum.getCode());
+        resultData.setMessage(resultCodeEnum.getMessage());
+        return resultData;
+    }
+
 }

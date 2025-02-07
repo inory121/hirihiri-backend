@@ -5,6 +5,8 @@ import jakarta.annotation.Resource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -37,10 +39,13 @@ public class RedisUtil {
     /**
      * 删除一个或多个key。
      */
-    public void delete(String... keys) {
-        for (String key : keys) {
-            redisTemplate.delete(key);
+    public Boolean delete(String... keys) {
+        if (Objects.isNull(keys) || keys.length == 0) {
+            return false;
         }
+
+        Long deletedKeysCount = redisTemplate.delete(Arrays.asList(keys));
+        return deletedKeysCount > 0;
     }
 
     /**

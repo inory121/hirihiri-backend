@@ -8,7 +8,6 @@ import cn.hutool.jwt.JWTUtil;
 import cn.hutool.jwt.JWTValidator;
 import com.hiiro.UserServiceApplication;
 import com.hiiro.entity.ResultCodeEnum;
-import com.hiiro.entity.User;
 import com.hiiro.exp.UserException;
 import com.hiiro.utils.MyJwtUtil;
 import com.hiiro.utils.RedisUtil;
@@ -30,12 +29,18 @@ public class UserServiceApplicationTests {
     MyJwtUtil jwtUtil;
 
     @Test
+    public void test1(){
+//        redisUtil.delete("user:2");
+    }
+
+    @Test
     public void contextLoad() {
-        System.out.println(redisUtil.getObject("user:2", User.class));
-        String token="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiIyIiwicm9sZSI6Im5vcm1hbCIsImV4cCI6MTczOTE5OTgxNTUxOX0.TGNmIGnemb781RXpr5AaWVU2afekGVQIl7FkqTORVow";
+//        System.out.println(redisUtil.getObject("user:2", User.class));
+        String token="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiIyIiwicm9sZSI6InVzZXIiLCJleHAiOjE3Mzk3NzgwMDM5MzEsImp0aSI6IjA2ZTRmNzBlLWMzZjktNDIwYy04Y2RjLTFlOGViZGFkZGMzZiJ9.EOIKMbLGmdXgT5dHncthUw2XKK6FUXZXPtSYx1nSEqQ";
         if (jwtUtil.verifyJwtToken(token)) {
-            Object uid = jwtUtil.getClaimFromToken(token, "uid");
-            System.out.println(redisUtil.get("user:" + uid));
+            Object jti = jwtUtil.getClaimFromToken(token, "jti");
+            System.out.println(jti);
+//            System.out.println(redisUtil.get("jti" + jti));
         } else {
             throw new UserException(ResultCodeEnum.TOKEN_INVALID);
         }

@@ -8,7 +8,7 @@ public class UserException extends GlobalException {
         super(resultCodeEnum);
     }
 
-    public UserException(ResultCodeEnum resultCodeEnum,String message) {
-        super(resultCodeEnum);
+    public UserException(ResultCodeEnum resultCodeEnum, String message) {
+        super(resultCodeEnum,message);
     }
 }

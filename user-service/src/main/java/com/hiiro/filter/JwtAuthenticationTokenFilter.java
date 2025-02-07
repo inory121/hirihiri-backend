@@ -37,23 +37,36 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             return;
         }
         token = token.substring(7);
-        //解析token
+        //验证token是否合法
         if (jwtUtil.verifyJwtToken(token)) {
+            //解析token,拿到uid
             Object uid = jwtUtil.getClaimFromToken(token, "uid");
+
+            // 解析token，拿到jti
+            Object jti = jwtUtil.getClaimFromToken(token, "jti");
+
+            //根据token的jti去redis判断是否在黑名单,如果是则不允许继续操作
+            Object blacklistJti = redisUtil.get("blacklist:user:" + uid + ":" + jti);
+            if (Objects.nonNull(blacklistJti)) {
+                throw new UserException(ResultCodeEnum.TOKEN_INVALID, "token无效,用户已登出！");
+            }
             //从redis中获取用户信息
             User loginUser = redisUtil.getObject("user:" + uid, User.class);
+
+            // 如果redis查不到代表用户没登陆过或者token已过期
             if (Objects.isNull(loginUser)) {
-                // 如果redis查不到代表用户没登陆过或者redis出错了
-                throw new UserException(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
+                throw new UserException(ResultCodeEnum.TOKEN_INVALID, "用户未登录或token已过期！");
             }
+
+            // 设置Spring Security上下文中的认证信息
             UsernamePasswordAuthenticationToken authenticationToken =
                     new UsernamePasswordAuthenticationToken(loginUser, null, null);
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+
             //放行
             filterChain.doFilter(request, response);
         } else {
-            throw new UserException(ResultCodeEnum.TOKEN_INVALID);
+            throw new UserException(ResultCodeEnum.TOKEN_INVALID, "token不合法");
         }
-
     }
 }

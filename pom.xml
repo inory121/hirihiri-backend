@@ -35,7 +35,7 @@
 
     <dependencyManagement>
         <dependencies>
-            <!--springboot-->
+            <!--springboot相关-->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-parent</artifactId>
@@ -90,7 +90,7 @@
                 <version>${druid.version}</version>
             </dependency>
 
-            <!--mybatis-plus(Spring Boot3)-->
+            <!--mybatis-plus-->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
@@ -118,12 +118,14 @@
                 <version>${fastjson2.version}</version>
             </dependency>
 
+            <!--redis-->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-data-redis</artifactId>
                 <version>${spring.boot.redis.version}</version>
             </dependency>
 
+            <!--redis连接池-->
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-pool2</artifactId>

@@ -16,6 +16,6 @@ public class VideoExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ResultData<String> exception(Exception e) {
         log.error("全局异常信息:{}", e.getMessage(), e);
-        return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR.getCode(), e.getMessage());
+        return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, e.getMessage());
     }
 }
