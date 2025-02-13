@@ -17,7 +17,7 @@ public class MybatisplusUtil {
                 .globalConfig(builder -> {
                     builder.author("hiiro") // 设置作者
                             .enableSwagger() // 开启 swagger 模式
-                            .outputDir("E://"); // 指定输出目录
+                            .outputDir("E:/github/my_github_project/hirihiri/hirihiri-backend/video-service/src/main/java"); // 指定输出目录
                 })
                 .dataSourceConfig(builder ->
                         builder.typeConvertHandler((globalConfig, typeRegistry, metaInfo) -> {
@@ -32,10 +32,10 @@ public class MybatisplusUtil {
                 .packageConfig(builder ->
                                 builder.parent("com.hiiro") // 设置父包名
 //                                .moduleName("system") // 设置父包模块名
-                                        .pathInfo(Collections.singletonMap(OutputFile.xml, "E://")) // 设置mapperXml生成路径
+                                        .pathInfo(Collections.singletonMap(OutputFile.xml, "E:")) // 设置mapperXml生成路径
                 )
                 .strategyConfig(builder ->
-                                builder.addInclude("user") // 设置需要生成的表名
+                                builder.addInclude("video") // 设置需要生成的表名
                                         .entityBuilder().enableLombok(new ClassAnnotationAttributes("@Data", "lombok.Data"))
                                         .mapperBuilder().enableFileOverride()
 //                                .addTablePrefix("t_", "c_") // 设置过滤表前缀

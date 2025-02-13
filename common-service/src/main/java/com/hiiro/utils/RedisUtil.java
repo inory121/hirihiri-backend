@@ -1,13 +1,20 @@
 package com.hiiro.utils;
 
 import cn.hutool.core.bean.BeanUtil;
+
 import jakarta.annotation.Resource;
+
+import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import com.alibaba.fastjson2.JSON;
+
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 public class RedisUtil {
@@ -25,6 +32,13 @@ public class RedisUtil {
         redisTemplate.opsForValue().set(key, value);
     }
 
+    public <T> Long setAllList(String key, List<T> list) {
+        List<String> dataList = list.stream()
+                .map(JSON::toJSONString)
+                .collect(Collectors.toList());
+        return redisTemplate.opsForList().rightPushAll(key, dataList);
+    }
+
     /**
      * 获取指定 key 的值。
      */
@@ -33,9 +47,16 @@ public class RedisUtil {
     }
 
     public <T> T getObject(String key, Class<T> clazz) {
-        return BeanUtil.toBean(redisTemplate.opsForValue().get(key), clazz);
+        return JSON.parseObject((String) redisTemplate.opsForValue().get(key), clazz);
     }
 
+    public <T> List<T> getList(String key,long index, Class<T> clazz) {
+        Object object = redisTemplate.opsForList().index(key,index);
+        if (Objects.nonNull(object)) {
+            return JSON.parseArray(object.toString(),clazz);
+        }
+        throw new RuntimeException("redis key is null");
+    }
     /**
      * 删除一个或多个key。
      */
@@ -53,6 +74,13 @@ public class RedisUtil {
      */
     public void setWithExpire(String key, Object value, TimeUnit unit) {
         redisTemplate.opsForValue().set(key, value, REDIS_DEFAULT_EXPIRE_TIME, unit);
+    }
+
+    /**
+     * 设置 key 的值，并设置过期时间。
+     */
+    public void setObjectWithExpire(String key, Object value, TimeUnit unit) {
+        redisTemplate.opsForValue().set(key, JSON.toJSONString(value), REDIS_DEFAULT_EXPIRE_TIME, unit);
     }
 
     /**

@@ -16,13 +16,36 @@ import java.util.HashMap;
  */
 public interface UserService extends IService<User> {
 
+    /**
+     * 用户注册
+     *
+     * @param user User实体
+     * @return ResultData对象
+     */
     ResultData<String> register(User user);
 
+    /**
+     * 用户登录
+     *
+     * @param user User实体
+     * @return ResultData对象
+     */
     ResultData<HashMap<String,Object>> login(User user);
 
+    /**
+     * 通过用户名获取用户信息
+     *
+     * @param username 用户名
+     * @return user User实体
+     */
     User getUserByUsername(String username);
 
-    int updateUserById(Long uid);
+//    /**
+//     * 通过用户uid更新用户信息
+//     *
+//     * @param uid 用户实体
+//     */
+//    int updateUserById(Long uid);
 
     int updateUserById(User user);
 

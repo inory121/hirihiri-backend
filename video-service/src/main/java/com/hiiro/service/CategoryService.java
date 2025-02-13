@@ -1,6 +1,8 @@
 package com.hiiro.service;
 
 import com.hiiro.entity.Category;
+import com.hiiro.entity.ResultData;
+import com.hiiro.entity.dto.CategoryDTO;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
@@ -15,6 +17,10 @@ import java.util.List;
  */
 public interface CategoryService extends IService<Category> {
 
-    List<Category> findAll();
+    /**
+     * 获取所有分区信息
+     * @return ResultData对象
+     */
+    ResultData<List<CategoryDTO>> getCategory();
 
 }

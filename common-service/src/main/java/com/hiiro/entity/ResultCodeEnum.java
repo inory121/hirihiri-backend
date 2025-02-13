@@ -24,7 +24,11 @@ public enum ResultCodeEnum {
     DATABASE_INSERT_ERROR(50001, "数据库插入失败"), //
     DATABASE_UPDATE_ERROR(50002, "数据库更新失败"), //
     DATABASE_DELETE_ERROR(50003, "数据库删除失败"), //
-    DATABASE_SELECT_ERROR(50004, "数据库查询失败"); //
+    DATABASE_SELECT_ERROR(50004, "数据库查询失败"),
+    REDIS_INSERT_ERROR(60001, "Redis插入失败"), //
+    REDIS_UPDATE_ERROR(60002, "Redis更新失败"), //
+    REDIS_DELETE_ERROR(60003, "Redis删除失败"), //
+    REDIS_SELECT_ERROR(60004, "Redis查询失败"); //
     private final int code;
     private final String message;
 

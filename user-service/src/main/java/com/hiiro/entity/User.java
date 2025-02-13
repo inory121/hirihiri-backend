@@ -1,6 +1,8 @@
 package com.hiiro.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -120,18 +122,13 @@ public class User implements Serializable {
      * 创建时间
      */
     @Schema(name = "创建时间")
-//    @JsonSerialize(using = LocalDateTimeSerializer.class)
-//    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
-//    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @TableField(fill = FieldFill.INSERT) //mybatisplus会在插入后自动添加该字段
     private LocalDateTime createDate;
 
     /**
      * 注销时间
      */
     @Schema(name = "注销时间")
-//    @JsonSerialize(using = LocalDateTimeSerializer.class)
-//    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
-//    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime deleteDate;
 
     /**

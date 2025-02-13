@@ -1,46 +1,44 @@
 package com.hiiro.controller;
 
-import com.hiiro.entity.Category;
 import com.hiiro.entity.ResultData;
-import com.hiiro.entity.dto.CategoryDTO;
-import com.hiiro.exp.VideoNotFoundException;
-import com.hiiro.service.CategoryService;
+import com.hiiro.entity.Video;
+import com.hiiro.service.VideoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
-
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 /**
  * <p>
- * 分区表 前端控制器
+ * 视频表 前端控制器
  * </p>
  *
  * @author hiiro
- * @since 2025-01-28
+ * @since 2025-02-11
  */
-//@CrossOrigin(origins = "*")
-@Tag(name = "分区信息管理")
+//@CrossOrigin("*")
+@Tag(name = "视频接口")
 @RestController
-@RequestMapping("/category")
-public class CategoryController {
+@RequestMapping("/video")
+public class VideoController {
 
     @Resource
-    private CategoryService categoryService;
+    private VideoService videoService;
 
     /**
-     *
+     * 获取推荐视频
      * @return ResultData对象
      */
-    @Operation(summary = "获取所有分区")
-    @GetMapping("/get/all")
-    public ResultData<List<CategoryDTO>> getCategory() {
-        return categoryService.getCategory();
+    @Operation(summary = "获取推荐视频")
+    @GetMapping("/get/recommend")
+    public ResultData<List<Video>> getRecommendVideos(){
+        return videoService.getRecommendVideos();
     }
 
 }

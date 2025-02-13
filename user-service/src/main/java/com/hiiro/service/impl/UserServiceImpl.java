@@ -67,8 +67,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (Objects.nonNull(getUserByUsername(user.getUsername()))) {
             throw new UserException(ResultCodeEnum.DATABASE_INSERT_ERROR, "用户已存在!");
         }
-        // 设置创建日期
-        user.setCreateDate(DateUtil.date().toLocalDateTime());
         // 加密用户密码
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         // 尝试注册用户
@@ -111,9 +109,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 创建默认的JWT令牌，其中包含用户的UID作为声明的一部分
         String token = jwtUtil.createDefaultJwtToken(new HashMap<>(Map.of("uid", uid)));
         // 更新用户登录状态
-        if (updateUserById(loginUser.getUser().getUid()) == 1) {
+        if (updateUserById(loginUser.getUser()) == 1) {
             // 登陆成功并成功更新登陆状态后将用户信息存入redis
-            redisUtil.setWithExpire("user:" + uid, loginUser.getUser(), TimeUnit.SECONDS);
+            redisUtil.setObjectWithExpire("user:" + uid, loginUser.getUser(), TimeUnit.SECONDS);
             // 返回token和用户信息给前端
             return ResultData.success(new HashMap<String, Object>(Map.of("user", BeanUtil.copyProperties(getUserByUsername(loginUser.getUsername()), UserDTO.class), "token", token)), "登陆成功!");
         } else {
@@ -133,16 +131,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
     }
 
-    /**
-     * 通过用户uid更新用户信息
-     *
-     * @param uid 用户实体
-     */
-    @Transactional
-    @Override
-    public int updateUserById(Long uid) {
-        return userMapper.update(new LambdaUpdateWrapper<User>().eq(User::getUid, uid).set(User::getIsLogin, true));
-    }
+//    /**
+//     * 通过用户uid更新用户信息
+//     *
+//     * @param uid 用户实体
+//     */
+//    @Transactional
+//    @Override
+//    public int updateUserById(Long uid) {
+//        return userMapper.update(new LambdaUpdateWrapper<User>().eq(User::getUid, uid).set(User::getIsLogin, true));
+//    }
 
     @Transactional
     @Override
