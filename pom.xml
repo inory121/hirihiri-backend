@@ -12,6 +12,7 @@
         <module>common-service</module>
         <module>user-service</module>
         <module>video-service</module>
+        <module>gateway</module>
     </modules>
 
     <properties>
@@ -30,7 +31,8 @@
         <spring.boot.web.version>3.2.4</spring.boot.web.version>
         <spring.boot.redis.version>3.4.2</spring.boot.redis.version>
         <spring.boot.security.version>3.2.4</spring.boot.security.version>
-        <spring.cloud.alibaba.version>2023.0.1.0</spring.cloud.alibaba.version>
+        <spring.cloud.alibaba.version>2023.0.3.2</spring.cloud.alibaba.version>
+        <spring.cloud.version>2023.0.1</spring.cloud.version>
     </properties>
 
     <dependencyManagement>
@@ -58,6 +60,15 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-security</artifactId>
                 <version>${spring.boot.security.version}</version>
+            </dependency>
+
+            <!--Spring Cloud -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring.cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <!--spring-cloud-alibaba-->

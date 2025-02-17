@@ -5,6 +5,6 @@
 - 后端：
     - SpringBoot3 + SpringSecurity +JWT+ SpringCloudAlibaba + MybatisPlus等
 - 数据库：
-    - MySQL + Redis + ElasticSearch
+    - MySQL 8.0.40 + Redis + ElasticSearch
 - 开发环境：
-    - JDK17 + NodeJs18.20.6 + IDEA
+    - JDK17 + IDEA 2024.3.1.1 + Maven 3.9.9 

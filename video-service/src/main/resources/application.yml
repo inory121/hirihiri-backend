@@ -1,9 +1,24 @@
 server:
   port: 8082
-
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health # 暴露健康检查端点
 spring:
+  config:
+    import: "nacos:video-service.yml"
   application:
     name: video-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+#    consul:
+#      host: localhost
+#      port: 8500
+#      discovery:
+#        seervice-name: ${spring.application.name}
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver

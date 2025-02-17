@@ -1,15 +1,12 @@
 package com.hiiro.controller;
 
-import com.hiiro.entity.Category;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.dto.CategoryDTO;
-import com.hiiro.exp.VideoNotFoundException;
 import com.hiiro.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,7 +23,7 @@ import java.util.List;
  */
 @Tag(name = "分区信息管理")
 @RestController
-@RequestMapping("/category")
+@RequestMapping("/api/category")
 public class CategoryController {
 
     @Resource

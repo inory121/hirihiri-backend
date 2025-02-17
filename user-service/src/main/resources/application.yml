@@ -1,9 +1,30 @@
 server:
   port: 8081
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health # 暴露健康检查端点
 spring:
+  profiles:
+    active:
+  config:
+    import: "nacos:user-service.yml"
   application:
     name: user-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+  #    consul:
+  #      host: localhost
+  #      port: 8500
+  #      discovery:
+  #        service-name: ${spring.application.name}
+  #      config:
+  #        format: YAML
+  #        profile-separator: '-'
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver

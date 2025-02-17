@@ -1,0 +1,17 @@
+server:
+  port: 80
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        - id: user-route
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/**
+        - id: video-route
+          uri: lb://video-service
+          predicates:
+            - Path=/api/video/**,/api/category/**

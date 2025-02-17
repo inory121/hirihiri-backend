@@ -48,12 +48,12 @@ public class UserSecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authorizeRequests ->
-                                authorizeRequests.requestMatchers("/user/login", "/user/register",
+                .authorizeHttpRequests(auth ->
+                                auth.requestMatchers( "/user/**",
                                                 "/doc.html",
                                                 "/swagger-ui.html",
                                                 "/swagger-ui*/**", "/swagger-resources/**",
-                                                "/v3/**", "/webjars/**"
+                                                "/v3/**", "/webjars/**","/actuator/**"
                                         )
 //                                authorizeRequests.requestMatchers("**")
                                         .anonymous()

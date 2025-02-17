@@ -6,6 +6,7 @@ import com.hiiro.service.VideoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,7 +25,7 @@ import java.util.List;
  */
 @Tag(name = "视频接口")
 @RestController
-@RequestMapping("/video")
+@RequestMapping("/api/video")
 public class VideoController {
 
     @Resource
@@ -32,11 +33,12 @@ public class VideoController {
 
     /**
      * 获取推荐视频
+     *
      * @return ResultData对象
      */
     @Operation(summary = "获取推荐视频")
     @GetMapping("/get/recommend")
-    public ResultData<List<Video>> getRecommendVideos(){
+    public ResultData<List<Video>> getRecommendVideos() {
         return videoService.getRecommendVideos();
     }
 
