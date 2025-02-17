@@ -30,7 +30,7 @@ public interface UserService extends IService<User> {
      * @param user User实体
      * @return ResultData对象
      */
-    ResultData<HashMap<String,Object>> login(User user);
+    ResultData<HashMap<String, Object>> login(User user);
 
     /**
      * 通过用户名获取用户信息
@@ -40,14 +40,35 @@ public interface UserService extends IService<User> {
      */
     User getUserByUsername(String username);
 
-//    /**
-//     * 通过用户uid更新用户信息
-//     *
-//     * @param uid 用户实体
-//     */
-//    int updateUserById(Long uid);
+    /**
+     * 通过用户名获取用户信息
+     *
+     * @param uid 用户uid
+     * @return user User实体
+     */
+    User getUserByUid(Long uid);
 
+    /**
+     * 更新用户信息
+     *
+     * @param user User实体
+     * @return ResultData对象
+     */
     int updateUserById(User user);
 
+    /**
+     * 用户登出
+     *
+     * @param authorization token
+     * @return ResultData对象
+     */
     ResultData<String> logout(String authorization);
+
+    /**
+     * 获取用户信息
+     *
+     * @param authorization
+     * @return ResultData对象
+     */
+    ResultData<User> getUserInfo(String authorization);
 }

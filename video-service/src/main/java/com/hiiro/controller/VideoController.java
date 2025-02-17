@@ -22,7 +22,6 @@ import java.util.List;
  * @author hiiro
  * @since 2025-02-11
  */
-//@CrossOrigin("*")
 @Tag(name = "视频接口")
 @RestController
 @RequestMapping("/video")

@@ -103,10 +103,4 @@ public class UserDTO implements Serializable {
      */
     @Schema(name = "创建时间")
     private LocalDateTime createDate;
-
-    /**
-     * 是否登录 0未登录 1已登录
-     */
-    @Schema(name = "是否登录 0未登录 1已登录")
-    private Boolean isLogin;
 }

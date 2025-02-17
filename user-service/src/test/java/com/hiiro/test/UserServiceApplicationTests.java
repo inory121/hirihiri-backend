@@ -42,7 +42,7 @@ public class UserServiceApplicationTests {
             System.out.println(jti);
 //            System.out.println(redisUtil.get("jti" + jti));
         } else {
-            throw new UserException(ResultCodeEnum.TOKEN_INVALID);
+            throw new UserException(ResultCodeEnum.UNAUTHORIZED);
         }
     }
     @Test

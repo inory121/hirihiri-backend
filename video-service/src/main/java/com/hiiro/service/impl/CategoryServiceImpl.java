@@ -88,7 +88,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
             redisUtil.delete("categoryList");
             redisUtil.setAllList("categoryList", sortedCategories);
         } else {
-            return ResultData.fail(ResultCodeEnum.DATABASE_SELECT_ERROR);
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR,"视频分类查询失败!");
         }
 
         return ResultData.success(sortedCategories);

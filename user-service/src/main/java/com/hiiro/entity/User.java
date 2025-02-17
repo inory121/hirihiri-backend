@@ -131,9 +131,4 @@ public class User implements Serializable {
     @Schema(name = "注销时间")
     private LocalDateTime deleteDate;
 
-    /**
-     * 是否登录 0未登录 1已登录
-     */
-    @Schema(name = "是否登录 0未登录 1已登录")
-    private Boolean isLogin;
 }

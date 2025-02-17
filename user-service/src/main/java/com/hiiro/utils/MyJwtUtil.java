@@ -102,15 +102,15 @@ public class MyJwtUtil {
     }
 
     /**
-     * 获取指定的声明
+     * 从token中获取指定claim
      *
      * @param token     JWT令牌
-     * @param claimName 声明名称
-     * @return 指定声明的值
+     * @param claimName claim名称
+     * @return claim值
      */
-    public Object getClaimFromToken(String token, String claimName) {
+    public String getClaimFromToken(String token, String claimName) {
         // 解析token，获取payload部分的所有claim
-        return JWTUtil.parseToken(token).getPayload().getClaim(claimName);
+        return JWTUtil.parseToken(token).getPayload().getClaim(claimName).toString();
     }
 
 }

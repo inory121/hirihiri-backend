@@ -24,7 +24,6 @@ import java.util.List;
  * @author hiiro
  * @since 2025-01-28
  */
-//@CrossOrigin(origins = "*")
 @Tag(name = "分区信息管理")
 @RestController
 @RequestMapping("/category")

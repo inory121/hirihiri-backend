@@ -48,14 +48,14 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             //根据token的jti去redis判断是否在黑名单,如果是则不允许继续操作
             Object blacklistJti = redisUtil.get("blacklist:user:" + uid + ":" + jti);
             if (Objects.nonNull(blacklistJti)) {
-                throw new UserException(ResultCodeEnum.TOKEN_INVALID, "token无效,用户已登出！");
+                throw new UserException(ResultCodeEnum.UNAUTHORIZED, "token无效,用户已登出！");
             }
             //从redis中获取用户信息
             User loginUser = redisUtil.getObject("user:" + uid, User.class);
 
             // 如果redis查不到代表用户没登陆过或者token已过期
             if (Objects.isNull(loginUser)) {
-                throw new UserException(ResultCodeEnum.TOKEN_INVALID, "用户未登录或token已过期！");
+                throw new UserException(ResultCodeEnum.UNAUTHORIZED, "用户未登录或token已过期！");
             }
 
             // 设置Spring Security上下文中的认证信息
@@ -66,7 +66,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             //放行
             filterChain.doFilter(request, response);
         } else {
-            throw new UserException(ResultCodeEnum.TOKEN_INVALID, "token不合法");
+            throw new UserException(ResultCodeEnum.UNAUTHORIZED, "token不合法");
         }
     }
 }

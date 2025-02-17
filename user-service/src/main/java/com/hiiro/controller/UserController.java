@@ -57,4 +57,14 @@ public class UserController {
         return userService.logout(authorization);
     }
 
+    /**
+     *
+     * @param authorization 认证信息
+     * @return ResultData对象
+     */
+    @Operation(summary = "获取用户信息")
+    @PostMapping("/info")
+    public ResultData<User> getUserInfo(@RequestHeader(name = "Authorization") String authorization) {
+        return userService.getUserInfo(authorization);
+    }
 }
