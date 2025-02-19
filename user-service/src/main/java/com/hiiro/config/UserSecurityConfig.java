@@ -49,15 +49,15 @@ public class UserSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
-                                auth.requestMatchers( "/user/**",
+                                auth.requestMatchers( "/api/**",
                                                 "/doc.html",
                                                 "/swagger-ui.html",
                                                 "/swagger-ui*/**", "/swagger-resources/**",
                                                 "/v3/**", "/webjars/**","/actuator/**"
                                         )
 //                                authorizeRequests.requestMatchers("**")
-                                        .anonymous()
-//                                        .permitAll()
+//                                        .anonymous()
+                                        .permitAll()
                                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)
