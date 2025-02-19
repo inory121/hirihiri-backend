@@ -9,16 +9,10 @@ import com.hiiro.entity.dto.CategoryDTO;
 import com.hiiro.mapper.CategoryMapper;
 import com.hiiro.service.CategoryService;
 import com.hiiro.utils.RedisUtil;
-
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * <p>

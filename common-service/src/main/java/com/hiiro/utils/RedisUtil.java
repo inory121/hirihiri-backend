@@ -1,14 +1,9 @@
 package com.hiiro.utils;
 
-import cn.hutool.core.bean.BeanUtil;
-
+import com.alibaba.fastjson2.JSON;
 import jakarta.annotation.Resource;
-
-import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
-
-import com.alibaba.fastjson2.JSON;
 
 import java.util.Arrays;
 import java.util.List;

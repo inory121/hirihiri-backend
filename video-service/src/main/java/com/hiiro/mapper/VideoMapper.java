@@ -1,7 +1,7 @@
 package com.hiiro.mapper;
 
-import com.hiiro.entity.Video;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.hiiro.entity.Video;
 import org.apache.ibatis.annotations.Mapper;
 
 
