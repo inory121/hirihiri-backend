@@ -77,8 +77,8 @@ jwt:
 aliyun:
   oss:
     endpoint: https://oss-cn-nanjing.aliyuncs.com
-    access-key-id: LTAI5t6z4f8z4eGttjDDtFxT
-    access-key-secret: znxKwdEa7a8NclZsloL8rnMG8JQxkC
+    access-key-id: *
+    access-key-secret: *
     bucket-name: hirihiri
     thread-pool-size: 5
     part-size-mb: 5
