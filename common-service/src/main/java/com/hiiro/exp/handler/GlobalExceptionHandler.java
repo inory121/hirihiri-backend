@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(RuntimeException.class)
+    @ExceptionHandler(Exception.class)
     public ResultData<String> exception(Exception e) {
         log.error("全局异常信息:{}", e.getMessage(), e);
         return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, e.getMessage());

@@ -73,3 +73,12 @@ mybatis-plus:
 
 jwt:
   secret: 114514
+
+aliyun:
+  oss:
+    endpoint: https://oss-cn-nanjing.aliyuncs.com
+    access-key-id: LTAI5t6z4f8z4eGttjDDtFxT
+    access-key-secret: znxKwdEa7a8NclZsloL8rnMG8JQxkC
+    bucket-name: hirihiri
+    thread-pool-size: 5
+    part-size-mb: 5

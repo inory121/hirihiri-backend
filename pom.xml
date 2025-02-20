@@ -27,6 +27,7 @@
         <knife4j.version>4.5.0</knife4j.version>
         <fastjson2.version>2.0.54</fastjson2.version>
         <commons.pool2.version>2.12.1</commons.pool2.version>
+        <aliyun.sdk.oss>3.18.1</aliyun.sdk.oss>
         <spring.boot.version>3.2.4</spring.boot.version>
         <spring.boot.web.version>3.2.4</spring.boot.web.version>
         <spring.boot.redis.version>3.4.2</spring.boot.redis.version>
@@ -141,6 +142,13 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-pool2</artifactId>
                 <version>${commons.pool2.version}</version>
+            </dependency>
+
+            <!-- 阿里云 OSS SDK -->
+            <dependency>
+                <groupId>com.aliyun.oss</groupId>
+                <artifactId>aliyun-sdk-oss</artifactId>
+                <version>${aliyun.sdk.oss}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
