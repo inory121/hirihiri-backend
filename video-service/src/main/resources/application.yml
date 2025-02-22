@@ -86,3 +86,7 @@ aliyun:
     bucket-name: hirihiri
     thread-pool-size: 5
     part-size-mb: 5
+
+video:
+  upload:
+    tmp: hirihiri-backend/tmp/uploads

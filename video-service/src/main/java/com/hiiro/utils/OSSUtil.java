@@ -3,6 +3,8 @@ package com.hiiro.utils;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.*;
 import com.hiiro.config.OSSConfig;
+import com.hiiro.config.OSSResumeConfig;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -11,6 +13,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -28,11 +32,14 @@ public class OSSUtil {
     private final OSS ossClient;
     private final ExecutorService uploadThreadPool;
     private final OSSConfig ossConfig;
+    private final OSSResumeConfig resumeConfig;
+//    @Resource
+//    ChunkManager chunkManager;
 
     /**
      * 直接上传已分片的文件（前端已预先分片）
      *
-     * @param objectKey OSS对象路径
+     * @param objectKey 文件名
      * @param chunks    分片文件列表（需按顺序排列）
      * @throws IOException 文件操作异常
      * @apiNote 特性：
@@ -68,14 +75,57 @@ public class OSSUtil {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
-            chunks.forEach(File::delete); // 清理分片文件
+//            chunks.forEach(File::delete); // 清理分片文件
         }
     }
 
     /**
+     * 断点续传上传文件
+     *
+     * @param objectKey     文件名
+     * @param localFilePath 本地文件路径
+     */
+    public void resumeUpload(String objectKey, String localFilePath) {
+        UploadFileRequest request = new UploadFileRequest(
+                ossConfig.getBucketName(),
+                objectKey,
+                localFilePath,
+                resumeConfig.getPartSizeMB() * 1024 * 1024L,
+                resumeConfig.getTaskNum(),
+                resumeConfig.isEnableCheckpoint()
+        );
+        // 新增ContentType设置
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType(getContentType(objectKey));
+        request.setObjectMetadata(metadata);
+
+        request.setCheckpointFile(getCheckpointPath(objectKey));
+
+        try {
+            UploadFileResult result = ossClient.uploadFile(request);
+            log.info("断点续传成功，ETag: {}", result.getMultipartUploadResult().getETag());
+        } catch (Throwable e) {
+            throw new RuntimeException("断点续传失败", e);
+        }
+    }
+
+    /**
+     * 获取断点续传的断点信息文件路径
+     *
+     * @param objectKey 文件名
+     * @return 断点续传的断点信息文件路径
+     */
+    private String getCheckpointPath(String objectKey) {
+        return Paths.get(resumeConfig.getCheckpointDir(),
+                        objectKey.replace("/", "_") + ".ucp")
+                .toString();
+    }
+
+
+    /**
      * 多分片上传文件（传统方式，前端上传完整文件后服务端分片）
      *
-     * @param objectKey OSS对象路径
+     * @param objectKey 文件名
      * @param localFile 待上传的本地文件
      * @throws IOException 文件操作异常
      * @apiNote 该方法会在上传完成后自动删除本地文件
@@ -108,12 +158,35 @@ public class OSSUtil {
     /**
      * 初始化分片上传任务
      *
+     * @param objectKey 文件名
      * @return 返回本次上传任务的唯一标识 uploadId
      */
     private String initiateMultipartUpload(String objectKey) {
         InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(
                 ossConfig.getBucketName(), objectKey);
+        // 新增ContentType设置
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType(getContentType(objectKey));
+        request.setObjectMetadata(metadata);
         return ossClient.initiateMultipartUpload(request).getUploadId();
+    }
+
+    /**
+     * 获取文件类型对应的ContentType
+     *
+     * @param fileName 文件名
+     * @return ContentType
+     */
+    private String getContentType(String fileName) {
+        String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+        return switch (extension) {
+            case "mp4" -> "video/mp4";
+            case "flv" -> "video/x-flv";
+            case "avi" -> "video/x-msvideo";
+            case "mov" -> "video/quicktime";
+            case "webm" -> "video/webm";
+            default -> "application/octet-stream";
+        };
     }
 
     /**
@@ -157,6 +230,7 @@ public class OSSUtil {
             synchronized (partETags) {
                 partETags.add(result.getPartETag());
             }
+//            chunkManager.recordChunkStatus(uploadId, partNumber, result.getPartETag());
             log.info("分片 {} 上传成功 (大小: {} MB)", chunkName, partSize / 1024 / 1024);
         } catch (Exception e) {
             throw new RuntimeException("分片上传失败: " + chunkName, e);
@@ -164,17 +238,23 @@ public class OSSUtil {
     }
 
     /**
-     * 完成分片上传（合并所有分片）
+     * 完成分片上传任务
      *
-     * @implNote 会自动对分片按序号排序后提交
+     * @param objectKey 文件名
+     * @param uploadId  上传任务ID
+     * @param partETags 分片上传结果列表
+     * @throws IOException 文件操作异常
      */
-    private void completeUpload(String objectKey, String uploadId, List<PartETag> partETags) {
+    private void completeUpload(String objectKey, String uploadId, List<PartETag> partETags) throws IOException {
         partETags.sort(Comparator.comparingInt(PartETag::getPartNumber));
 
         CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(
                 ossConfig.getBucketName(), objectKey, uploadId, partETags);
 
         ossClient.completeMultipartUpload(completeRequest);
+        if (resumeConfig.isEnableCheckpoint()) {
+            Files.deleteIfExists(Paths.get(getCheckpointPath(objectKey)));
+        }
     }
 
 }
