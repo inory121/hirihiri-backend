@@ -1,54 +1,54 @@
 package com.hiiro.controller;
 
-import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
+import com.hiiro.utils.ChunkManager;
 import com.hiiro.utils.OSSUtil;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
+@RequestMapping("/api/upload")
 public class UploadController {
-
     @Resource
-    private OSSUtil ossUtil;
+    ChunkManager chunkManager;
+    @Resource
+    OSSUtil ossUtil;
 
-    @PostMapping("/upload")
-    public ResultData<String> uploadFile(@RequestParam("file") MultipartFile multipartFile) {
-        try {
-            // 获取项目的根目录
-            Path projectDir = Paths.get(System.getProperty("user.dir")); // 使用系统属性获取项目根目录
-            Path tempDir = projectDir.resolve("hirihiri-backend/temp"); // 创建一个名为 "temp" 的子目录
-
-            // 如果目录不存在，则创建它
-            if (!Files.exists(tempDir)) {
-                Files.createDirectories(tempDir); // 创建目录（包括父目录）
-                System.out.println("临时目录创建成功: " + tempDir.toAbsolutePath());
-            } else {
-                System.out.println("临时目录已存在: " + tempDir.toAbsolutePath());
-            }
-
-            // 使用 java.nio.file.Files 创建临时文件
-            Path tempFile = Files.createTempFile(tempDir, "upload-", ".tmp");
-            System.out.println("临时文件路径: " + tempFile.toAbsolutePath());
-
-            // 将上传的文件保存到临时文件
-            multipartFile.transferTo(tempFile.toFile());
-
-            // 调用上传服务
-            ossUtil.uploadFileMultipart(multipartFile.getOriginalFilename(), tempFile.toFile());
-
-            return ResultData.success("上传文件成功");
-        } catch (IOException e) {
-            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, e.getMessage());
-        }
+    // 1. 初始化分片上传（生成唯一 uploadId）
+    @PostMapping("/init")
+    public ResultData<String> initUpload(@RequestParam("fileName") String fileName) {
+        String uploadId = UUID.randomUUID().toString();
+        return ResultData.success(uploadId, "操作成功");
     }
 
+    // 2. 上传分片
+    @PostMapping("/chunk")
+    public ResultData<String> uploadChunk(
+            @RequestParam("file") MultipartFile chunk,
+            @RequestParam("uploadId") String uploadId,
+            @RequestParam("chunkNumber") int chunkNumber,
+            @RequestParam("totalChunks") int totalChunks) throws IOException {
+
+        File chunkFile = chunkManager.saveChunk(uploadId, chunkNumber, chunk);
+        return ResultData.success("分片上传成功");
+    }
+
+    // 3. 合并分片并上传到OSS
+    @PostMapping("/complete")
+    public ResultData<String> completeUpload(
+            @RequestParam("uploadId") String uploadId,
+            @RequestParam("fileName") String fileName) throws IOException {
+        List<File> chunks = chunkManager.getChunks(uploadId);
+        ossUtil.uploadPartsDirectly(fileName, chunks); // 直接上传已接收的分片
+        return ResultData.success("上传完成");
+    }
 }

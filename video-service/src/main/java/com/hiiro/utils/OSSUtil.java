@@ -4,8 +4,8 @@ import com.aliyun.oss.OSS;
 import com.aliyun.oss.model.*;
 import com.hiiro.config.OSSConfig;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -18,6 +18,10 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * OSS文件工具类，提供分片上传相关操作
+ */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class OSSUtil {
@@ -25,6 +29,58 @@ public class OSSUtil {
     private final ExecutorService uploadThreadPool;
     private final OSSConfig ossConfig;
 
+    /**
+     * 直接上传已分片的文件（前端已预先分片）
+     *
+     * @param objectKey OSS对象路径
+     * @param chunks    分片文件列表（需按顺序排列）
+     * @throws IOException 文件操作异常
+     * @apiNote 特性：
+     * 1. 使用线程池并发上传分片
+     * 2. 自动合并分片并完成上传
+     * 3. 上传完成后自动清理分片文件
+     */
+    public void uploadPartsDirectly(String objectKey, List<File> chunks) throws IOException {
+        List<PartETag> partETags = Collections.synchronizedList(new ArrayList<>());
+        String uploadId = initiateMultipartUpload(objectKey);
+
+        try {
+            CountDownLatch latch = new CountDownLatch(chunks.size());
+
+            for (int i = 0; i < chunks.size(); i++) {
+                final int partNumber = i + 1;
+                final File chunk = chunks.get(i);
+
+                uploadThreadPool.execute(() -> {
+                    try (InputStream is = new FileInputStream(chunk)) {
+                        // 复用原有上传逻辑
+                        uploadPart(objectKey, chunk.getName(), uploadId, partNumber, is, chunk.length(), partETags);
+                    } catch (Exception e) {
+                        throw new RuntimeException("分片上传失败: " + chunk.getName(), e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            latch.await();
+            completeUpload(objectKey, uploadId, partETags);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            chunks.forEach(File::delete); // 清理分片文件
+        }
+    }
+
+    /**
+     * 多分片上传文件（传统方式，前端上传完整文件后服务端分片）
+     *
+     * @param objectKey OSS对象路径
+     * @param localFile 待上传的本地文件
+     * @throws IOException 文件操作异常
+     * @apiNote 该方法会在上传完成后自动删除本地文件
+     */
+    // 这是原有方法，是在前端传来完整文件再分片，现在改为前端传分片后的文件，也就是上面的uploadPartsDirectly方法
     public void uploadFileMultipart(String objectKey, File localFile) throws IOException {
         List<PartETag> partETags = Collections.synchronizedList(new ArrayList<>());
         String uploadId = initiateMultipartUpload(objectKey);
@@ -34,7 +90,7 @@ public class OSSUtil {
             long partSize = ossConfig.getPartSizeMB() * 1024 * 1024L;
             int partCount = calculatePartCount(fileLength, partSize);
 
-            uploadPartsConcurrently(objectKey, localFile, uploadId, partSize, partCount, partETags);
+//            uploadPartsConcurrently(objectKey, localFile, uploadId, partSize, partCount, partETags);
             completeUpload(objectKey, uploadId, partETags);
         } finally {
             // 添加文件删除逻辑
@@ -44,16 +100,30 @@ public class OSSUtil {
                     localFile.deleteOnExit(); // 强制 JVM 退出时删除
                 }
             }
+            // ossClient由spring管理，手动关闭会导致用户断开连接
 //            ossClient.shutdown();
         }
     }
 
+    /**
+     * 初始化分片上传任务
+     *
+     * @return 返回本次上传任务的唯一标识 uploadId
+     */
     private String initiateMultipartUpload(String objectKey) {
         InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(
                 ossConfig.getBucketName(), objectKey);
         return ossClient.initiateMultipartUpload(request).getUploadId();
     }
 
+    /**
+     * 计算所需分片数量
+     *
+     * @param fileLength 文件总大小（字节）
+     * @param partSize   单个分片大小（字节）
+     * @return 分片总数
+     * @throws IllegalArgumentException 当分片数超过10000时抛出
+     */
     private int calculatePartCount(long fileLength, long partSize) {
         int partCount = (int) (fileLength / partSize);
         if (fileLength % partSize != 0) partCount++;
@@ -63,55 +133,41 @@ public class OSSUtil {
         return partCount;
     }
 
-    private void uploadPartsConcurrently(String objectKey, File file, String uploadId,
-                                         long partSize, int partCount, List<PartETag> partETags) {
-        CountDownLatch latch = new CountDownLatch(partCount);
-
-        for (int i = 0; i < partCount; i++) {
-            final int partNumber = i + 1;
-            long startPos = i * partSize;
-            long curPartSize = (i == partCount - 1) ?
-                    (file.length() - startPos) : partSize;
-
-            uploadThreadPool.execute(() -> {
-                try {
-                    uploadPart(objectKey, file, uploadId, partNumber, startPos, curPartSize, partETags);
-                } finally {
-                    latch.countDown();
-                }
-            });
-        }
-
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private void uploadPart(String objectKey, File file, String uploadId,
-                            int partNumber, long startPos, long partSize,
+    /**
+     * 执行单个分片上传
+     *
+     * @param chunkName   分片文件名（用于日志记录）
+     * @param uploadId    上传任务ID
+     * @param partNumber  分片序号（从1开始）
+     * @param inputStream 分片数据流（方法内会自动关闭）
+     */
+    private void uploadPart(String objectKey, String chunkName, String uploadId,
+                            int partNumber, InputStream inputStream, long partSize,
                             List<PartETag> partETags) {
-        try (InputStream instream = new FileInputStream(file)) {
-            instream.skip(startPos);
-
+        try {
             UploadPartRequest request = new UploadPartRequest();
             request.setBucketName(ossConfig.getBucketName());
             request.setKey(objectKey);
             request.setUploadId(uploadId);
             request.setPartNumber(partNumber);
             request.setPartSize(partSize);
-            request.setInputStream(instream);
+            request.setInputStream(inputStream);
 
             UploadPartResult result = ossClient.uploadPart(request);
             synchronized (partETags) {
                 partETags.add(result.getPartETag());
             }
+            log.info("分片 {} 上传成功 (大小: {} MB)", chunkName, partSize / 1024 / 1024);
         } catch (Exception e) {
-            throw new RuntimeException("Part upload failed", e);
+            throw new RuntimeException("分片上传失败: " + chunkName, e);
         }
     }
 
+    /**
+     * 完成分片上传（合并所有分片）
+     *
+     * @implNote 会自动对分片按序号排序后提交
+     */
     private void completeUpload(String objectKey, String uploadId, List<PartETag> partETags) {
         partETags.sort(Comparator.comparingInt(PartETag::getPartNumber));
 
@@ -120,4 +176,5 @@ public class OSSUtil {
 
         ossClient.completeMultipartUpload(completeRequest);
     }
+
 }

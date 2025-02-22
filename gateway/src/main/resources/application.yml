@@ -20,4 +20,4 @@ spring:
         - id: video-route
           uri: lb://video-service
           predicates:
-            - Path=/api/video/**,/api/category/**
+            - Path=/api/video/**,/api/category/**,/api/upload/**
