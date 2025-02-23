@@ -6,23 +6,23 @@ management:
       exposure:
         include: health # 暴露健康检查端点
 spring:
-  servlet:
-    multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
-  config:
-    import: "nacos:video-service.yml"
   application:
     name: video-service
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  config:
+    import: "nacos:video-service.yml"
   cloud:
     nacos:
       discovery:
         server-addr: localhost:8848
-#    consul:
-#      host: localhost
-#      port: 8500
-#      discovery:
-#        seervice-name: ${spring.application.name}
+  #    consul:
+  #      host: localhost
+  #      port: 8500
+  #      discovery:
+  #        seervice-name: ${spring.application.name}
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -70,14 +70,14 @@ knife4j:
   enable: true
   setting:
     language: zh_cn
-
+#mybatisplus打印sql日志
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
+#jwt密钥
 jwt:
   secret: 114514
-
+#阿里云oss配置
 aliyun:
   oss:
     endpoint: https://oss-cn-nanjing.aliyuncs.com
@@ -85,8 +85,8 @@ aliyun:
     access-key-secret: znxKwdEa7a8NclZsloL8rnMG8JQxkC
     bucket-name: hirihiri
     thread-pool-size: 5
-    part-size-mb: 5
-
+    part-size-mb: 10
+#视频上传缓存位置
 video:
   upload:
     tmp: hirihiri-backend/tmp/uploads
