@@ -21,3 +21,5 @@ spring:
           uri: lb://video-service
           predicates:
             - Path=/api/video/**,/api/category/**,/api/upload/**
+jwt:
+  secret: 114514

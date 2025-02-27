@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class MyJwtUtil {
 
-    // jwt默认过期时间设置为当前时间加上5天
-    public static final long JWT_DEFAULT_EXPIRE_TIME = DateUtil.current() + 1000 * 60 * 60 * 24 * 10;
+    // jwt默认过期时间设置为当前时间加上10天
+    private static final long JWT_DEFAULT_EXPIRE_TIME = DateUtil.current() + 1000 * 60 * 60 * 24 * 10;
 
     @Value("${jwt.secret}")
     private String secretKey;

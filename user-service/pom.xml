@@ -17,8 +17,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <dependencies>
+    <dependencies><!--common-->
         <!--common-->
+        <dependency>
+            <groupId>com.hiiro</groupId>
+            <artifactId>common-utils</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
         <dependency>
             <groupId>com.hiiro</groupId>
             <artifactId>common-service</artifactId>

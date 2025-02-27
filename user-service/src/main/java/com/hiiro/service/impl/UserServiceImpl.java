@@ -15,7 +15,6 @@ import jakarta.annotation.Resource;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -152,25 +151,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     /**
      * 用户登出
-     * 
-     * @param authorization token
+     *
+     * @param uid 用户ID
      * @return ResultData对象
      */
     @Transactional
     @Override
-    public ResultData<String> logout(String authorization) {
+    public ResultData<String> logout(String uid, String token) {
         // 从SecurityContextHolder获取用户信息
-        User loginUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+//        User loginUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         // 判断是否存在用户信息并且token不为空
-        if (Objects.nonNull(loginUser) && Objects.nonNull(authorization)) {
+        if (!uid.isEmpty()) {
             // 从请求头中获取token
-            String token = authorization.substring(7);
+//            String token = authorization.substring(7);
             // 从jwt中获取jti
             String jti = jwtUtil.getClaimFromToken(token, "jti");
             // 从redis中删除用户信息
-            if (redisUtil.delete("user:" + loginUser.getUid(), "token:user:" + loginUser.getUid())) {
+            if (redisUtil.delete("user:" + uid, "token:user:" + uid)) {
                 // 将token加入黑名单
-                redisUtil.setWithExpire("blacklist:user:" + loginUser.getUid() + ":" + jti, jti, TimeUnit.SECONDS);
+                redisUtil.setWithExpire("blacklist:user:" + uid + ":" + jti, jti, TimeUnit.SECONDS);
                 return ResultData.success("用户登出成功");
             }
             return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户已登出");
@@ -181,19 +180,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     /**
      * 获取用户信息
      *
-     * @param authorization token
+     * @param uid 用户ID
      * @return ResultData对象
      */
     @Override
-    public ResultData<User> getUserInfo(String authorization) {
+    public ResultData<User> getUserInfo(String uid) {
         // 从请求头获取Authorization并提取token
-        String token = authorization.substring(7);
+//        String token = authorization.substring(7);
         try {
             // 从jwt中获取uid
-            Long uid = Long.parseLong(jwtUtil.getClaimFromToken(token, "uid"));
+//            Long uid = Long.parseLong(jwtUtil.getClaimFromToken(token, "uid"));
             // 通过uid获取用户信息
-            if (Objects.nonNull(getUserByUid(uid))) {
-                return ResultData.success(getUserByUid(uid), "获取用户信息成功");
+            Long userId = Long.valueOf(uid);
+            if (Objects.nonNull(getUserByUid(userId))) {
+                return ResultData.success(getUserByUid(userId), "获取用户信息成功");
             } else {
                 return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
             }

@@ -21,6 +21,11 @@
         <!--common模块-->
         <dependency>
             <groupId>com.hiiro</groupId>
+            <artifactId>common-utils</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.hiiro</groupId>
             <artifactId>common-service</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>

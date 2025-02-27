@@ -6,6 +6,7 @@ import com.hiiro.config.OSSConfig;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,6 +35,33 @@ public class OSSUtil {
 //    private OSSResumeConfig resumeConfig;
 
     /**
+     * 上传文件
+     *
+     * @param objectKey 文件名
+     * @param file      文件
+     * @return 文件访问地址
+     */
+    public String uploadFile(String objectKey, MultipartFile file) {
+        try (InputStream is = file.getInputStream()) {
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentType(getContentType(objectKey));
+            metadata.setContentLength(file.getSize());
+
+            PutObjectRequest request = new PutObjectRequest(
+                    ossConfig.getBucketName(),
+                    objectKey,
+                    is,
+                    metadata
+            );
+
+            ossClient.putObject(request);
+            return ossConfig.getBucketUrl() + "/"  + objectKey;
+        } catch (Exception e) {
+            throw new RuntimeException("封面文件上传失败", e);
+        }
+    }
+
+    /**
      * 直接上传已分片的文件（前端已预先分片）
      *
      * @param objectKey 文件名
@@ -43,7 +71,7 @@ public class OSSUtil {
      * 2. 自动合并分片并完成上传
      * 3. 上传完成后自动清理分片文件
      */
-    public void uploadPartsDirectly(String objectKey, List<File> chunks) {
+    public String uploadPartsDirectly(String objectKey, List<File> chunks) {
         List<PartETag> partETags = Collections.synchronizedList(new ArrayList<>());
         String uploadId = initiateMultipartUpload(objectKey);
 
@@ -68,8 +96,10 @@ public class OSSUtil {
 
             latch.await();
             completeUpload(objectKey, uploadId, partETags);
+            return ossConfig.getBucketUrl() + "/"  + objectKey;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw new RuntimeException("分片上传被中断", e);
         } finally {
 //            chunks.forEach(File::delete); // 清理分片文件
         }

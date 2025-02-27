@@ -13,6 +13,7 @@
         <module>user-service</module>
         <module>video-service</module>
         <module>gateway</module>
+        <module>common-utils</module>
     </modules>
 
     <properties>
@@ -30,6 +31,7 @@
         <aliyun.sdk.oss>3.18.1</aliyun.sdk.oss>
         <spring.boot.version>3.2.4</spring.boot.version>
         <spring.boot.web.version>3.2.4</spring.boot.web.version>
+        <spring.boot.webflux.version>3.2.4</spring.boot.webflux.version>
         <spring.boot.redis.version>3.4.2</spring.boot.redis.version>
         <spring.boot.security.version>3.2.4</spring.boot.security.version>
         <spring.cloud.alibaba.version>2023.0.3.2</spring.cloud.alibaba.version>
@@ -50,6 +52,12 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-web</artifactId>
                 <version>${spring.boot.web.version}</version>
+            </dependency>
+            <!--springboot webflux-->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-webflux</artifactId>
+                <version>${spring.boot.webflux.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>

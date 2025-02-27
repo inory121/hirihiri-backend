@@ -15,6 +15,7 @@ import java.util.concurrent.Executors;
 @Data
 public class OSSConfig {
     private String endpoint;
+    private String bucketUrl;
     private String accessKeyId;
     private String accessKeySecret;
     private String bucketName;

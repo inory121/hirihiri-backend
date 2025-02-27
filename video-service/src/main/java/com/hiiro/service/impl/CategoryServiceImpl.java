@@ -34,7 +34,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
     @Override
     public ResultData<List<CategoryDTO>> getCategory() {
         List<CategoryDTO> categorys = redisUtil.getList("categoryList",0,CategoryDTO.class);
-        if (Objects.nonNull(categorys)) {
+        if (!categorys.isEmpty()) {
             return ResultData.success(categorys);
         }
         QueryWrapper<Category> wrapper = new QueryWrapper<>();
@@ -79,7 +79,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
                     sortedCategories.add(categoryDTOMap.get(mcId));
                 }
             }
-            redisUtil.delete("categoryList");
             redisUtil.setAllList("categoryList", sortedCategories);
         } else {
             return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR,"视频分类查询失败!");

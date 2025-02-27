@@ -8,6 +8,7 @@ import com.hiiro.mapper.VideoMapper;
 import com.hiiro.service.VideoService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -33,5 +34,13 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     public ResultData<List<Video>> getRecommendVideos() {
         List<Video> videoList = new LambdaQueryChainWrapper<>(Video.class).ne(Video::getVid, "3").list();
         return ResultData.success(videoList);
+    }
+
+    @Transactional
+    @Override
+    public void saveVideo(String uid, Video video) {
+        video.setUid(Integer.valueOf(uid));
+        videoMapper.insert(video);
+        ResultData.success("保存视频成功");
     }
 }

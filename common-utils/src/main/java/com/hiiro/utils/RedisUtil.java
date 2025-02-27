@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 @Component
 public class RedisUtil {
 
-    // redis默认TTL设置为1小时
-    private static final long REDIS_DEFAULT_EXPIRE_TIME = 60 * 60;
+    // redis默认TTL设置为10天
+    private static final long REDIS_DEFAULT_EXPIRE_TIME = 60 * 60 * 24 * 10;
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
@@ -45,13 +45,14 @@ public class RedisUtil {
         return JSON.parseObject((String) redisTemplate.opsForValue().get(key), clazz);
     }
 
-    public <T> List<T> getList(String key,long index, Class<T> clazz) {
-        Object object = redisTemplate.opsForList().index(key,index);
+    public <T> List<T> getList(String key, long index, Class<T> clazz) {
+        Object object = redisTemplate.opsForList().index(key, index);
         if (Objects.nonNull(object)) {
-            return JSON.parseArray(object.toString(),clazz);
+            return JSON.parseArray(object.toString(), clazz);
         }
-        throw new RuntimeException("redis key is null");
+        return List.of();
     }
+
     /**
      * 删除一个或多个key。
      */

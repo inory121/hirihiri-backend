@@ -47,25 +47,24 @@ public class UserController {
     }
 
     /**
-     *
-     * @param authorization 认证信息
+     * @param uid   用户id
+     * @param token token
      * @return ResultData对象
      */
     @Operation(summary = "登出")
     @PostMapping("/logout")
-    public ResultData<String> logout(@RequestHeader(name = "Authorization") String authorization) {
-        return userService.logout(authorization);
+    public ResultData<String> logout(@RequestHeader("uid") String uid, @RequestHeader("token") String token) {
+        return userService.logout(uid, token);
     }
 
     /**
-     *
-     * @param authorization 认证信息
+     * @param uid 用户id
      * @return ResultData对象
      */
     @Operation(summary = "获取用户信息")
     @PostMapping("/info")
-    public ResultData<User> getUserInfo(@RequestHeader(name = "Authorization") String authorization) {
-        return userService.getUserInfo(authorization);
+    public ResultData<User> getUserInfo(@RequestHeader("uid") String uid) {
+        return userService.getUserInfo(uid);
     }
 
 }
