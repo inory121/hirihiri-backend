@@ -241,6 +241,8 @@ public class OSSUtil {
             case "wmv" -> "video/x-ms-wmv";
             case "mov" -> "video/quicktime";
             case "webm" -> "video/webm";
+            case "jpg" -> "image/jpeg";
+            case "png" -> "image/png";
             default -> "application/octet-stream";
         };
     }

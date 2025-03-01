@@ -1,7 +1,6 @@
 package com.hiiro.controller;
 
 import com.alibaba.fastjson2.JSON;
-import com.hiiro.config.OSSConfig;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
 import com.hiiro.service.VideoService;
@@ -28,8 +27,6 @@ public class UploadController {
     OSSUtil ossUtil;
     @Resource
     private VideoService videoService;
-    @Resource
-    private OSSConfig ossConfig;
 
     // 1. 初始化分片上传（生成唯一 uploadId）
     @Operation(summary = "初始化分片上传")
@@ -57,8 +54,8 @@ public class UploadController {
     @Operation(summary = "完成分片上传")
     @PostMapping("/complete")
     public ResultData<String> completeUpload(
-            @RequestParam("uploadId") String uploadId,
-            @RequestParam("fileName") String fileName,
+            @RequestPart("uploadId") String uploadId,
+            @RequestPart("fileName") String fileName,
             @RequestHeader("uid") String uid,
             @RequestPart("coverFile") MultipartFile coverFile,
             @RequestPart("videoInfo") String videoInfoJson
@@ -70,13 +67,13 @@ public class UploadController {
         // 处理封面文件
         String coverUrl = "";
         if (!coverFile.isEmpty()) {
-            coverUrl = ossUtil.uploadFile(today + "/" + uid + "/cover/" + fileName, coverFile);
+            coverUrl = ossUtil.uploadFile(today + "/" + uid + "/cover/" + coverFile.getOriginalFilename(), coverFile);
         }
         Video video = JSON.parseObject(videoInfoJson, Video.class);
         video.setVideoUrl(videoUrl);
         video.setCoverUrl(coverUrl);
         videoService.saveVideo(uid, video);
-//        chunkManager.cleanTempFiles(uploadId);
+        chunkUtil.cleanTempFiles(uploadId);
         return ResultData.success("上传完成");
     }
 
