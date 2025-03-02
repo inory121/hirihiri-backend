@@ -28,7 +28,11 @@ public class UploadController {
     @Resource
     private VideoService videoService;
 
-    // 1. 初始化分片上传（生成唯一 uploadId）
+    /**
+     * 初始化分片上传
+     *
+     * @return ResultData对象
+     */
     @Operation(summary = "初始化分片上传")
     @PostMapping("/init")
     public ResultData<String> initUpload() {
@@ -36,7 +40,16 @@ public class UploadController {
         return ResultData.success(uploadId, "操作成功");
     }
 
-    // 2. 上传分片
+    /**
+     * 上传分片
+     *
+     * @param chunk      分片文件
+     * @param uploadId   上传ID
+     * @param chunkNumber 当前分片序号
+     * @param totalChunks 总分片数
+     * @param fileName   文件名
+     * @return ResultData对象
+     */
     @Operation(summary = "上传分片")
     @PostMapping("/chunk")
     public ResultData<String> uploadChunk(
@@ -50,7 +63,15 @@ public class UploadController {
         return ResultData.success("分片上传成功");
     }
 
-    // 3. 完成分片上传
+    /**
+     * 完成分片上传
+     * @param uploadId 上传ID
+     * @param fileName 文件名
+     * @param uid 用户ID
+     * @param coverFile 封面文件
+     * @param videoInfoJson 视频信息JSON
+     * @return ResultData对象
+     */
     @Operation(summary = "完成分片上传")
     @PostMapping("/complete")
     public ResultData<String> completeUpload(

@@ -28,14 +28,21 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 
     /**
      * 首页获取推荐视频
+     *
      * @return ResultData对象
      */
     @Override
     public ResultData<List<Video>> getRecommendVideos() {
-        List<Video> videoList = new LambdaQueryChainWrapper<>(Video.class).ne(Video::getVid, "3").list();
+        List<Video> videoList = new LambdaQueryChainWrapper<>(Video.class).ne(Video::getStatus, "3").list();
         return ResultData.success(videoList);
     }
 
+    /**
+     * 保存视频
+     *
+     * @param uid   用户id
+     * @param video 视频对象
+     */
     @Transactional
     @Override
     public void saveVideo(String uid, Video video) {
