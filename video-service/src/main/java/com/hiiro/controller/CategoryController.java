@@ -20,7 +20,7 @@ import java.util.List;
  * @author hiiro
  * @since 2025-01-28
  */
-@Tag(name = "分区信息管理")
+@Tag(name = "分区信息接口")
 @RestController
 @RequestMapping("/api/category")
 public class CategoryController {

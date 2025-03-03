@@ -7,6 +7,7 @@ import com.hiiro.service.VideoService;
 import com.hiiro.utils.ChunkUtil;
 import com.hiiro.utils.OSSUtil;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,6 +18,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
+@Tag(name = "视频上传接口")
 @RestController
 @RequestMapping("/api/upload")
 public class UploadController {
@@ -43,11 +45,11 @@ public class UploadController {
     /**
      * 上传分片
      *
-     * @param chunk      分片文件
-     * @param uploadId   上传ID
+     * @param chunk       分片文件
+     * @param uploadId    上传ID
      * @param chunkNumber 当前分片序号
      * @param totalChunks 总分片数
-     * @param fileName   文件名
+     * @param fileName    文件名
      * @return ResultData对象
      */
     @Operation(summary = "上传分片")
@@ -65,10 +67,11 @@ public class UploadController {
 
     /**
      * 完成分片上传
-     * @param uploadId 上传ID
-     * @param fileName 文件名
-     * @param uid 用户ID
-     * @param coverFile 封面文件
+     *
+     * @param uploadId      上传ID
+     * @param fileName      文件名
+     * @param uid           用户ID
+     * @param coverFile     封面文件
      * @param videoInfoJson 视频信息JSON
      * @return ResultData对象
      */

@@ -6,9 +6,7 @@ import com.hiiro.service.VideoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -39,4 +37,15 @@ public class VideoController {
         return videoService.getRecommendVideos();
     }
 
+    /**
+     * 获取视频详情
+     *
+     * @param vid 视频id
+     * @return ResultData对象
+     */
+    @Operation(summary = "获取视频详情")
+    @GetMapping("/get/one/{vid}")
+    public ResultData<Video> getVideoById(@PathVariable("vid") Integer vid) {
+        return videoService.getVideoById(vid);
+    }
 }

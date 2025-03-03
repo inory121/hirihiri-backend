@@ -29,4 +29,12 @@ public interface VideoService extends IService<Video> {
      * @param video 视频对象
      */
     void saveVideo(String uid, Video video);
+
+    /**
+     * 根据视频id获取视频
+     *
+     * @param vid 视频id
+     * @return ResultData对象
+     */
+    ResultData<Video> getVideoById(Integer vid);
 }

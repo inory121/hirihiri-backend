@@ -22,7 +22,8 @@ public enum ResultCodeEnum {
     INTERNAL_SERVER_ERROR(500, "服务器内部错误"),
 
     // ====== 自定义状态码 ======
-    USER_NOT_EXIST(4001, "用户不存在");
+    USER_NOT_EXIST(4001, "用户不存在"),
+    VIDEO_NOT_EXIST(4002, "视频不存在");
 
     // ====== 数据库状态码 ======
     // INTERNAL_SERVER_ERROR(50001, "数据库插入失败"), 

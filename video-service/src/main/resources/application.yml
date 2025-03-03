@@ -1,10 +1,5 @@
 server:
   port: 8082
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health # 暴露健康检查端点
 spring:
   application:
     name: video-service
@@ -13,16 +8,11 @@ spring:
       max-file-size: 20MB
       max-request-size: 20MB
   config:
-    import: "nacos:video-service.yml"
+    import: "nacos:global-config.yml,nacos:video-service.yml"
   cloud:
     nacos:
       discovery:
         server-addr: localhost:8848
-  #    consul:
-  #      host: localhost
-  #      port: 8500
-  #      discovery:
-  #        seervice-name: ${spring.application.name}
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -74,19 +64,6 @@ knife4j:
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-#jwt密钥
-jwt:
-  secret: 114514
-#阿里云oss配置
-aliyun:
-  oss:
-    endpoint: https://oss-cn-nanjing.aliyuncs.com
-    bucketUrl: https://hirihiri.oss-cn-nanjing.aliyuncs.com
-    access-key-id: LTAI5t6z4f8z4eGttjDDtFxT
-    access-key-secret: znxKwdEa7a8NclZsloL8rnMG8JQxkC
-    bucket-name: hirihiri
-    thread-pool-size: 5
-    part-size-mb: 10
 #视频上传缓存位置
 video:
   upload:
