@@ -202,4 +202,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new IllegalArgumentException("字符串无法转为 Long");
         }
     }
+
+    /**
+     * 通过用户ID获取用户名
+     *
+     * @param uid 用户ID
+     * @return ResultData对象
+     */
+    @Override
+    public ResultData<String> getUsernameByUid(String uid) {
+        String username = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUid, uid)).getUsername();
+        if (Objects.nonNull(username)) {
+            return ResultData.success(username, "获取用户名成功");
+        }
+        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+    }
 }

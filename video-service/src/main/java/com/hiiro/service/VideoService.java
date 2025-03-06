@@ -37,4 +37,5 @@ public interface VideoService extends IService<Video> {
      * @return ResultData对象
      */
     ResultData<Video> getVideoById(Integer vid);
+
 }

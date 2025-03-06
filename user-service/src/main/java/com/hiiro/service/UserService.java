@@ -59,7 +59,8 @@ public interface UserService extends IService<User> {
     /**
      * 用户登出
      *
-     * @param authorization token
+     * @param uid 用户ID
+     * @param token token
      * @return ResultData对象
      */
     ResultData<String> logout(String uid,String token);
@@ -67,8 +68,16 @@ public interface UserService extends IService<User> {
     /**
      * 获取用户信息
      *
-     * @param authorization
+     * @param uid 用户ID
      * @return ResultData对象
      */
     ResultData<User> getUserInfo(String uid);
+
+    /**
+     * 通过用户ID获取用户名
+     *
+     * @param uid 用户ID
+     * @return ResultData对象
+     */
+    ResultData<String> getUsernameByUid(String uid);
 }

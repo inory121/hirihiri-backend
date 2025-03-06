@@ -67,4 +67,10 @@ public class UserController {
         return userService.getUserInfo(uid);
     }
 
+    @Operation(summary = "获取用户名")
+    @PostMapping("/username")
+    public ResultData<String> getUsernameByUid(@RequestParam("uid") String uid) {
+        return userService.getUsernameByUid(uid);
+    }
+
 }
