@@ -35,7 +35,7 @@ public class MybatisplusUtil {
                                         .pathInfo(Collections.singletonMap(OutputFile.xml, "E:")) // 设置mapperXml生成路径
                 )
                 .strategyConfig(builder ->
-                                builder.addInclude("video") // 设置需要生成的表名
+                                builder.addInclude("video_stat") // 设置需要生成的表名
                                         .entityBuilder().enableLombok(new ClassAnnotationAttributes("@Data", "lombok.Data"))
                                         .mapperBuilder().enableFileOverride()
 //                                .addTablePrefix("t_", "c_") // 设置过滤表前缀

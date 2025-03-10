@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Component
@@ -45,17 +46,12 @@ public class ChunkUtil {
             // 构造分片文件路径（添加文件扩展名）
             Path chunkFile = chunkDir.resolve(chunkNumber + ".part");
 
-            log.info("分片{}.part 保存成功，保存路径：{}", chunkNumber,chunkFile.toAbsolutePath());
+            log.info("分片{}.part 保存成功，保存路径：{}", chunkNumber, chunkFile.toAbsolutePath());
             chunk.transferTo(chunkFile);
             // 记录元数据
             if (chunkNumber == 1) {
                 Path metaFile = Paths.get(tempDir, uploadId, "metadata.info");
                 Files.writeString(metaFile, fileName + ":" + totalChunks);
-
-                // 建立文件映射
-//                fileUploadMap.put(fileName, uploadId);
-                Path recordFile = Paths.get(tempDir, fileName + ".upload");
-                Files.writeString(recordFile, uploadId);
             }
         } catch (IOException e) {
             log.error("保存分片失败", e);
@@ -98,10 +94,10 @@ public class ChunkUtil {
      * @param uploadId 上传ID
      */
     public void cleanTempFiles(String uploadId) {
-        Path uploadDir = Paths.get(tempDir, uploadId, "chunks");
-        try {
-            Files.walk(uploadDir)
-                    .sorted(Comparator.reverseOrder())
+        Path uploadDir = Paths.get(tempDir, uploadId);
+//        Path uploadDir = Paths.get(tempDir, uploadId, "chunks");
+        try (Stream<Path> stream = Files.walk(uploadDir)) {
+            stream.sorted(Comparator.reverseOrder())
                     .forEach(path -> {
                         try {
                             Files.deleteIfExists(path);
@@ -113,5 +109,6 @@ public class ChunkUtil {
             throw new RuntimeException("清理临时文件失败", e);
         }
     }
+
 }
 

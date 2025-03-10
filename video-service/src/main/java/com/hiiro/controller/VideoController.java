@@ -1,18 +1,19 @@
 package com.hiiro.controller;
 
 import com.hiiro.entity.ResultData;
-import com.hiiro.entity.Video;
 import com.hiiro.service.VideoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
- * 视频表 前端控制器
+ * 视频表
  * </p>
  *
  * @author hiiro
@@ -33,8 +34,9 @@ public class VideoController {
      */
     @Operation(summary = "获取推荐视频")
     @GetMapping("/get/recommend")
-    public ResultData<List<Video>> getRecommendVideos() {
-        return videoService.getRecommendVideos();
+    public ResultData<List<Map<String, Object>>> getRecommendVideos(@RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                                    @RequestParam(name = "pageSize", required = false) Integer pageSize) {
+        return videoService.getRecommendVideos(pageNum, pageSize);
     }
 
     /**
@@ -45,7 +47,7 @@ public class VideoController {
      */
     @Operation(summary = "获取视频详情")
     @GetMapping("/get/one/{vid}")
-    public ResultData<Video> getVideoById(@PathVariable("vid") Integer vid) {
+    public ResultData<HashMap<String, Object>> getVideoById(@PathVariable("vid") Integer vid) {
         return videoService.getVideoById(vid);
     }
 }

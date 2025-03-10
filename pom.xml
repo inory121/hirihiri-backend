@@ -36,6 +36,7 @@
         <spring.boot.security.version>3.2.4</spring.boot.security.version>
         <spring.cloud.alibaba.version>2023.0.3.2</spring.cloud.alibaba.version>
         <spring.cloud.version>2023.0.1</spring.cloud.version>
+        <spring.cloud.openfeign.version>4.2.0</spring.cloud.openfeign.version>
     </properties>
 
     <dependencyManagement>
@@ -89,6 +90,12 @@
                 <scope>import</scope>
             </dependency>
 
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-starter-openfeign</artifactId>
+                <version>${spring.cloud.openfeign.version}</version>
+            </dependency>
+
             <!--hutool工具-->
             <dependency>
                 <groupId>cn.hutool</groupId>
@@ -113,9 +120,15 @@
             <!--mybatis-plus-->
             <dependency>
                 <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <artifactId>mybatis-plus-bom</artifactId>
                 <version>${mybatis.plus.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
+<!--            <dependency>-->
+<!--                <groupId>com.baomidou</groupId>-->
+<!--                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>-->
+<!--            </dependency>-->
 
             <!--mysql-->
             <dependency>

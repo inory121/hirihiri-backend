@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -18,9 +20,12 @@ public interface VideoService extends IService<Video> {
 
     /**
      * 获取推荐视频
+     *
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
      * @return ResultData对象
      */
-    ResultData<List<Video>> getRecommendVideos();
+    ResultData<List<Map<String,Object>>> getRecommendVideos(Integer pageNum, Integer pageSize);
 
     /**
      * 保存视频
@@ -36,6 +41,6 @@ public interface VideoService extends IService<Video> {
      * @param vid 视频id
      * @return ResultData对象
      */
-    ResultData<Video> getVideoById(Integer vid);
+    ResultData<HashMap<String, Object>> getVideoById(Integer vid);
 
 }

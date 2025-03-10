@@ -1,7 +1,7 @@
 package com.hiiro.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.hiiro.entity.User;
+import com.hiiro.entity.dto.UserDTO;
 import org.apache.ibatis.annotations.Mapper;
 
 
@@ -14,6 +14,6 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2025-01-29
  */
 @Mapper
-public interface UserMapper extends BaseMapper<User> {
+public interface UserDTOMapper extends BaseMapper<UserDTO> {
 
 }

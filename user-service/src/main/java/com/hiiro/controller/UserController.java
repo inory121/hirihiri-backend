@@ -2,6 +2,7 @@ package com.hiiro.controller;
 
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
+import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -9,6 +10,7 @@ import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * <p>
@@ -61,16 +63,30 @@ public class UserController {
      * @param uid 用户id
      * @return ResultData对象
      */
-    @Operation(summary = "获取用户信息")
-    @PostMapping("/info")
+    @Operation(summary = "获取单个用户信息")
+    @GetMapping("/info")
     public ResultData<User> getUserInfo(@RequestHeader("uid") String uid) {
         return userService.getUserInfo(uid);
     }
 
-    @Operation(summary = "获取用户名")
-    @PostMapping("/username")
-    public ResultData<String> getUsernameByUid(@RequestParam("uid") String uid) {
-        return userService.getUsernameByUid(uid);
+    /**
+     * @param uids 用户id
+     * @return List<UserDTO>
+     */
+    @Operation(summary = "获取批量用户信息")
+    @PostMapping("/batch/info")
+    public List<UserDTO> getBatchUserInfo(@RequestBody List<Long> uids) {
+        return userService.getBatchUserInfo(uids);
+    }
+
+    /**
+     * @param uid 用户id
+     * @return UserDTO
+     */
+    @Operation(summary = "获取用户DTO")
+    @GetMapping("/info/dto")
+    public UserDTO getUserByUid(@RequestParam("uid") Long uid) {
+        return userService.getUserDTOByUid(uid);
     }
 
 }

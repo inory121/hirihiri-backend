@@ -3,8 +3,10 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
+import com.hiiro.entity.dto.UserDTO;
 
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * <p>
@@ -79,5 +81,13 @@ public interface UserService extends IService<User> {
      * @param uid 用户ID
      * @return ResultData对象
      */
-    ResultData<String> getUsernameByUid(String uid);
+    UserDTO getUserDTOByUid(Long uid);
+
+    /**
+     * 批量获取用户信息
+     *
+     * @param uids 用户ID集合
+     * @return List<UserDTO>
+     */
+    List<UserDTO> getBatchUserInfo(List<Long> uids);
 }

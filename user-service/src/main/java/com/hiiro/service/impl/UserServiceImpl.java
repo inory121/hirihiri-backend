@@ -7,6 +7,7 @@ import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
 import com.hiiro.entity.dto.UserDTO;
+import com.hiiro.mapper.UserDTOMapper;
 import com.hiiro.mapper.UserMapper;
 import com.hiiro.service.UserService;
 import com.hiiro.utils.MyJwtUtil;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +45,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private UserDTOMapper userDTOMapper;
 
     @Resource
     private PasswordEncoder passwordEncoder;
@@ -158,12 +163,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional
     @Override
     public ResultData<String> logout(String uid, String token) {
-        // 从SecurityContextHolder获取用户信息
-//        User loginUser = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        // 判断是否存在用户信息并且token不为空
         if (!uid.isEmpty()) {
-            // 从请求头中获取token
-//            String token = authorization.substring(7);
             // 从jwt中获取jti
             String jti = jwtUtil.getClaimFromToken(token, "jti");
             // 从redis中删除用户信息
@@ -185,11 +185,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public ResultData<User> getUserInfo(String uid) {
-        // 从请求头获取Authorization并提取token
-//        String token = authorization.substring(7);
         try {
-            // 从jwt中获取uid
-//            Long uid = Long.parseLong(jwtUtil.getClaimFromToken(token, "uid"));
             // 通过uid获取用户信息
             Long userId = Long.valueOf(uid);
             if (Objects.nonNull(getUserByUid(userId))) {
@@ -210,11 +206,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return ResultData对象
      */
     @Override
-    public ResultData<String> getUsernameByUid(String uid) {
-        String username = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUid, uid)).getUsername();
-        if (Objects.nonNull(username)) {
-            return ResultData.success(username, "获取用户名成功");
+    public UserDTO getUserDTOByUid(Long uid) {
+        UserDTO user = userDTOMapper.selectOne(new LambdaQueryWrapper<UserDTO>().eq(UserDTO::getUid, uid));
+        if (Objects.nonNull(user)) {
+            return user;
         }
-        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+        return new UserDTO();
+    }
+
+    /**
+     * 批量获取用户信息
+     *
+     * @param uids 用户ID列表
+     * @return List<UserDTO>
+     */
+    @Override
+    public List<UserDTO> getBatchUserInfo(List<Long> uids) {
+        List<UserDTO> userList = userDTOMapper.selectByIds(uids);
+        if (userList.isEmpty()) {
+            return List.of();
+        }
+        return userList;
     }
 }

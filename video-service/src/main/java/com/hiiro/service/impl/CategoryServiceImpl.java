@@ -1,5 +1,6 @@
 package com.hiiro.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hiiro.entity.Category;
@@ -31,6 +32,10 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
     @Resource
     private RedisUtil redisUtil;
 
+    /**
+     * 获取所有分类信息
+     * @return 分类信息
+     */
     @Override
     public ResultData<List<CategoryDTO>> getCategory() {
         List<CategoryDTO> categorys = redisUtil.getList("categoryList",0,CategoryDTO.class);
@@ -54,7 +59,6 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
 
                 if (!categoryDTOMap.containsKey(mcId)) {
                     CategoryDTO categoryDTO = new CategoryDTO();
-                    // categoryDTO.setCId(cId);
                     categoryDTO.setMcId(mcId);
                     categoryDTO.setMcName(mcName);
                     categoryDTO.setScList(new ArrayList<>());
@@ -64,6 +68,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
                 HashMap<String, Object> scMap = new HashMap<>(Map.of(
                         "cid", cId,
                         "mcId", mcId,
+                        "mcName", mcName,
                         "scId", scId,
                         "scName", scName,
                         "descr", descr,
@@ -81,9 +86,25 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
             }
             redisUtil.setAllList("categoryList", sortedCategories);
         } else {
-            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR,"视频分类查询失败!");
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR,"视频分类信息不存在!");
         }
 
         return ResultData.success(sortedCategories);
+    }
+
+    /**
+     * 根据主分区id和子分区id获取分类信息
+     * @param mcId 主分区id
+     * @param scId 子分区id
+     * @return Category对象
+     */
+    @Override
+    public Category getCategoryById(String mcId, String scId) {
+        Category category = categoryMapper.selectOne(new LambdaQueryWrapper<Category>().eq(Category::getMcId, mcId).eq(Category::getScId, scId));
+        if(Objects.nonNull(category)){
+            return category;
+        }else {
+            return new Category();
+        }
     }
 }

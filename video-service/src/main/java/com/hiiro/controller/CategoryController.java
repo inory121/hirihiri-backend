@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * <p>
- * 分区表 前端控制器
+ * 分区表
  * </p>
  *
  * @author hiiro

@@ -32,13 +32,13 @@ public class Video implements Serializable {
      */
     @Schema(name = "视频ID")
     @TableId(value = "vid", type = IdType.AUTO)
-    private Integer vid;
+    private Long vid;
 
     /**
      * 投稿用户ID
      */
     @Schema(name = "投稿用户ID")
-    private Integer uid;
+    private Long uid;
 
     /**
      * 标题

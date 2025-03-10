@@ -1,4 +1,5 @@
 import com.hiiro.VideoServiceApplication;
+import com.hiiro.apis.UserFeignApi;
 import com.hiiro.entity.dto.CategoryDTO;
 import com.hiiro.utils.RedisUtil;
 import jakarta.annotation.Resource;
@@ -14,7 +15,8 @@ public class test {
 
     @Resource
     RedisUtil redisUtil;
-    
+    @Resource
+    UserFeignApi userFeignApi;
     @Test
     void contextLoads() {
         List<CategoryDTO> object = redisUtil.getList("categoryList",0,CategoryDTO.class);
@@ -22,7 +24,6 @@ public class test {
     }
     @Test
     void contextLoads2() {
-        log.info("OSS AccessKeyId: {}", System.getenv("ALIYUN_OSS_ACCESS_KEY_ID"));
-        log.info("OSS AccessKeySecret: {}", System.getenv("ALIYUN_OSS_ACCESS_KEY_SECRET"));
+        System.out.println(userFeignApi.getBatchUserInfo(List.of(1L,2L)));
     }
 }

@@ -23,4 +23,12 @@ public interface CategoryService extends IService<Category> {
      */
     ResultData<List<CategoryDTO>> getCategory();
 
+    /**
+     * 根据主分区id和子分区id获取分区信息
+     * @param mcId 主分区id
+     * @param scId 子分区id
+     * @return Category对象
+     */
+    Category getCategoryById(String mcId, String scId);
+
 }
