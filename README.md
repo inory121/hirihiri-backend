@@ -11,3 +11,7 @@
 ## 前端地址
 
 [基于微服务开发的仿哔哩哔哩网站前端](https://github.com/inory121/hirihiri-frontend)
+
+## 管理员端地址
+
+[基于微服务开发的仿哔哩哔哩网站前端](https://github.com/inory121/hirihiri-admin)
