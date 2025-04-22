@@ -3,6 +3,7 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -25,7 +26,16 @@ public interface VideoService extends IService<Video> {
      * @param pageSize 分页大小
      * @return ResultData对象
      */
-    ResultData<List<Map<String,Object>>> getRecommendVideos(Integer pageNum, Integer pageSize);
+    ResultData<List<Map<String, Object>>> getRecommendVideos(Integer pageNum, Integer pageSize);
+
+    /**
+     * 获取全部视频
+     *
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
+     * @return ResultData对象
+     */
+    ResultData<List<Map<String, Object>>> getAllVideos(Integer pageNum, Integer pageSize);
 
     /**
      * 保存视频
@@ -44,4 +54,15 @@ public interface VideoService extends IService<Video> {
      */
     ResultData<HashMap<String, Object>> getVideoById(Integer vid);
 
+    /**
+     * 修改视频信息
+     *
+     * @param video     视频对象
+     * @param coverFile 封面文件
+     * @return ResultData对象
+     */
+    ResultData<Video> updateVideo(Video video, MultipartFile coverFile);
+
+
+    ResultData<Video> updateVideoStatus(Long vid,Byte status);
 }

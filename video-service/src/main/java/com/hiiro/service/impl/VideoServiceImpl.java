@@ -3,6 +3,7 @@ package com.hiiro.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
+import com.baomidou.mybatisplus.extension.conditions.update.LambdaUpdateChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hiiro.apis.UserFeignApi;
@@ -19,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -48,32 +51,23 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     @Resource
     private UserFeignApi userFeignApi;
 
-    /**
-     * 获取推荐视频
-     *
-     * @return 推荐视频列表
-     */
-    @Override
-    public ResultData<List<Map<String, Object>>> getRecommendVideos(Integer pageNum, Integer pageSize) {
+    // 校验并构建分页对象
+    private Page<Video> validateAndBuildPage(Integer pageNum, Integer pageSize) {
+        if (pageNum == null || pageNum < 1) pageNum = 1;
+        else if (pageNum > 100) pageNum = 100;
+
+        if (pageSize == null || pageSize < 1) pageSize = 10;
+        else if (pageSize > 50) pageSize = 50;
+
+        return new Page<>(pageNum, pageSize);
+    }
+
+    // 处理分页查询核心逻辑
+    private ResultData<List<Map<String, Object>>> processVideoPage(IPage<Video> videoPage) {
         long start = System.currentTimeMillis();
-        // 设置默认分页参数
-        if (pageNum == null || pageNum < 1) {
-            pageNum = 1; // 最小页数1
-        } else if (pageNum > 100) {
-            pageNum = 100; // 最大页数100
-        }
-        if (pageSize == null || pageSize < 1) {
-            pageSize = 10; // 默认每页10条
-        } else if (pageSize > 50) {
-            pageSize = 50; // 最大每页50条
-        }
-        Page<Video> page = new Page<>(pageNum, pageSize);
-        IPage<Video> videoPage = new LambdaQueryChainWrapper<>(videoMapper)
-                .ne(Video::getStatus, 3)
-                .page(page);
         List<Video> videoList = videoPage.getRecords();
         if (videoList.isEmpty()) {
-            return ResultData.success(Collections.emptyList(), "无推荐视频");
+            return ResultData.success(Collections.emptyList(), "视频列表为空");
         }
 
         // 在获取视频列表后，提取所有用户ID
@@ -177,6 +171,34 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     }
 
     /**
+     * 获取推荐视频
+     *
+     * @return 推荐视频列表
+     */
+    @Override
+    public ResultData<List<Map<String, Object>>> getRecommendVideos(Integer pageNum, Integer pageSize) {
+        Page<Video> page = validateAndBuildPage(pageNum, pageSize);
+        IPage<Video> videoPage = new LambdaQueryChainWrapper<>(videoMapper)
+                .eq(Video::getStatus, 1)
+                .page(page);
+        return processVideoPage(videoPage);
+    }
+
+    /**
+     * 获取所有视频
+     *
+     * @param pageNum  页码
+     * @param pageSize 页大小
+     * @return ResultData对象
+     */
+    @Override
+    public ResultData<List<Map<String, Object>>> getAllVideos(Integer pageNum, Integer pageSize) {
+        Page<Video> page = validateAndBuildPage(pageNum, pageSize);
+        IPage<Video> videoPage = new LambdaQueryChainWrapper<>(videoMapper).page(page);
+        return processVideoPage(videoPage);
+    }
+
+    /**
      * 保存视频
      *
      * @param uid   用户id
@@ -215,4 +237,40 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         }
         return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST);
     }
+
+    /**
+     * 更新视频
+     *
+     * @param video     视频对象
+     * @param coverFile 封面文件
+     * @return ResultData对象
+     */
+    @Transactional
+    @Override
+    public ResultData<Video> updateVideo(Video video, MultipartFile coverFile) {
+        // 判断视频是否存在
+        Video originalVideo = videoMapper.selectById(video.getVid());
+        if (Objects.isNull(originalVideo)) {
+            return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST);
+        }
+        if (!coverFile.isEmpty()) {
+
+        }
+        return videoMapper.updateById(video) == 1 ? ResultData.success(video, "更新视频成功") :
+                ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新视频失败");
+    }
+
+    @Override
+    public ResultData<Video> updateVideoStatus(Long vid, Byte status) {
+        LambdaUpdateChainWrapper<Video> chainWrapper = new LambdaUpdateChainWrapper<>(videoMapper).eq(Video::getVid, vid);
+        if (status == 3) {
+            return chainWrapper.set(Video::getStatus, status).set(Video::getDelDate, LocalDateTime.now()).update() ?
+                    ResultData.success("删除视频成功") : ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "删除视频失败");
+        } else if (status == 1 || status == 2) {
+            return chainWrapper.set(Video::getStatus, status).set(Video::getDelDate, null).update() ?
+                    ResultData.success("更新视频成功") : ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新视频失败");
+        }
+        return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "请求参数有误");
+    }
+
 }

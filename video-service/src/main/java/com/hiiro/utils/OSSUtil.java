@@ -23,7 +23,6 @@ import java.util.concurrent.ExecutorService;
  */
 @Slf4j
 @Component
-//@RequiredArgsConstructor
 public class OSSUtil {
     @Resource
     private OSS ossClient;
@@ -31,8 +30,6 @@ public class OSSUtil {
     private ExecutorService uploadThreadPool;
     @Resource
     private OSSConfig ossConfig;
-//    @Resource
-//    private OSSResumeConfig resumeConfig;
 
     /**
      * 上传文件
@@ -55,7 +52,7 @@ public class OSSUtil {
             );
 
             ossClient.putObject(request);
-            return ossConfig.getBucketUrl() + "/"  + objectKey;
+            return ossConfig.getBucketUrl() + "/" + objectKey;
         } catch (Exception e) {
             throw new RuntimeException("封面文件上传失败", e);
         }
@@ -96,7 +93,7 @@ public class OSSUtil {
 
             latch.await();
             completeUpload(objectKey, uploadId, partETags);
-            return ossConfig.getBucketUrl() + "/"  + objectKey;
+            return ossConfig.getBucketUrl() + "/" + objectKey;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("分片上传被中断", e);
@@ -135,81 +132,6 @@ public class OSSUtil {
         }
     }
 
-//    /**
-//     * 断点续传上传文件
-//     *
-//     * @param objectKey     文件名
-//     * @param localFilePath 本地文件路径
-//     */
-//    public void resumeUpload(String objectKey, String localFilePath) {
-//        UploadFileRequest request = new UploadFileRequest(
-//                ossConfig.getBucketName(),
-//                objectKey,
-//                localFilePath,
-//                resumeConfig.getPartSizeMB() * 1024 * 1024L,
-//                resumeConfig.getTaskNum(),
-//                resumeConfig.isEnableCheckpoint()
-//        );
-//        // 新增ContentType设置
-//        ObjectMetadata metadata = new ObjectMetadata();
-//        metadata.setContentType(getContentType(objectKey));
-//        request.setObjectMetadata(metadata);
-//
-//        request.setCheckpointFile(getCheckpointPath(objectKey));
-//
-//        try {
-//            UploadFileResult result = ossClient.uploadFile(request);
-//            log.info("断点续传成功，ETag: {}", result.getMultipartUploadResult().getETag());
-//        } catch (Throwable e) {
-//            throw new RuntimeException("断点续传失败", e);
-//        }
-//    }
-
-//    /**
-//     * 获取断点续传的断点信息文件路径
-//     *
-//     * @param objectKey 文件名
-//     * @return 断点续传的断点信息文件路径
-//     */
-//    private String getCheckpointPath(String objectKey) {
-//        return Paths.get(resumeConfig.getCheckpointDir(),
-//                        objectKey.replace("/", "_") + ".ucp")
-//                .toString();
-//    }
-
-//    /**
-//     * 多分片上传文件（传统方式，前端上传完整文件后服务端分片）
-//     *
-//     * @param objectKey 文件名
-//     * @param localFile 待上传的本地文件
-//     * @throws IOException 文件操作异常
-//     * @apiNote 该方法会在上传完成后自动删除本地文件
-//     */
-//    // 这是原有方法，是在前端传来完整文件再分片，现在改为前端传分片后的文件，也就是上面的uploadPartsDirectly方法
-//    public void uploadFileMultipart(String objectKey, File localFile) throws IOException {
-//        List<PartETag> partETags = Collections.synchronizedList(new ArrayList<>());
-//        String uploadId = initiateMultipartUpload(objectKey);
-//
-//        try {
-//            long fileLength = localFile.length();
-//            long partSize = ossConfig.getPartSizeMB() * 1024 * 1024L;
-//            int partCount = calculatePartCount(fileLength, partSize);
-//
-////            uploadPartsConcurrently(objectKey, localFile, uploadId, partSize, partCount, partETags);
-//            completeUpload(objectKey, uploadId, partETags);
-//        } finally {
-//            // 添加文件删除逻辑
-//            if (localFile != null && localFile.exists()) {
-//                boolean deleted = localFile.delete();
-//                if (!deleted) {
-//                    localFile.deleteOnExit(); // 强制 JVM 退出时删除
-//                }
-//            }
-//            // ossClient由spring管理，手动关闭会导致用户断开连接
-////            ossClient.shutdown();
-//        }
-//    }
-
     /**
      * 初始化分片上传任务
      *
@@ -219,7 +141,6 @@ public class OSSUtil {
     private String initiateMultipartUpload(String objectKey) {
         InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(
                 ossConfig.getBucketName(), objectKey);
-        // 新增ContentType设置
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentType(getContentType(objectKey));
         request.setObjectMetadata(metadata);
@@ -246,23 +167,6 @@ public class OSSUtil {
             default -> "application/octet-stream";
         };
     }
-
-//    /**
-//     * 计算所需分片数量
-//     *
-//     * @param fileLength 文件总大小（字节）
-//     * @param partSize   单个分片大小（字节）
-//     * @return 分片总数
-//     * @throws IllegalArgumentException 当分片数超过10000时抛出
-//     */
-//    private int calculatePartCount(long fileLength, long partSize) {
-//        int partCount = (int) (fileLength / partSize);
-//        if (fileLength % partSize != 0) partCount++;
-//        if (partCount > 10000) {
-//            throw new IllegalArgumentException("Exceed maximum parts limit (10000)");
-//        }
-//        return partCount;
-//    }
 
     /**
      * 完成分片上传任务

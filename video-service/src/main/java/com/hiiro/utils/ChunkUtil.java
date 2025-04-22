@@ -22,9 +22,6 @@ public class ChunkUtil {
     @Value("${video.upload.tmp:tmp/uploads}")
     private String tempDir;
 
-    // 记录文件与上传ID的映射关系
-//    private final Map<String, String> fileUploadMap = new ConcurrentHashMap<>();
-
     /**
      * 保存分片
      *
