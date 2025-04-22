@@ -40,7 +40,7 @@ public interface UserService extends IService<User> {
      * @param username 用户名
      * @return user User实体
      */
-    User getUserByUsername(String username);
+    UserDTO getUserByUsername(String username);
 
     /**
      * 通过用户名获取用户信息
@@ -48,7 +48,7 @@ public interface UserService extends IService<User> {
      * @param uid 用户uid
      * @return user User实体
      */
-    User getUserByUid(Long uid);
+    UserDTO getUserByUid(Long uid);
 
     /**
      * 更新用户信息
@@ -56,7 +56,7 @@ public interface UserService extends IService<User> {
      * @param user User实体
      * @return ResultData对象
      */
-    int updateUserById(User user);
+    ResultData<String> updateUserById(User user);
 
     /**
      * 用户登出
@@ -73,15 +73,15 @@ public interface UserService extends IService<User> {
      * @param uid 用户ID
      * @return ResultData对象
      */
-    ResultData<User> getUserInfo(String uid);
+    ResultData<UserDTO> getUserInfo(String uid);
 
     /**
      * 通过用户ID获取用户名
      *
      * @param uid 用户ID
-     * @return ResultData对象
+     * @return UserDTO对象
      */
-    UserDTO getUserDTOByUid(Long uid);
+    ResultData<UserDTO> getUserDTOByUid(Long uid);
 
     /**
      * 批量获取用户信息
@@ -90,4 +90,13 @@ public interface UserService extends IService<User> {
      * @return List<UserDTO>
      */
     List<UserDTO> getBatchUserInfo(List<Long> uids);
+
+    /**
+     * 获取用户分页信息
+     *
+     * @param pageNum 页码
+     * @param pageSize 页大小
+     * @return ResultData对象
+     */
+    ResultData<List<UserDTO>> getUserPage(Integer pageNum, Integer pageSize);
 }

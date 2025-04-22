@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +38,7 @@ import java.util.stream.Collectors;
 public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements VideoService {
 
     @Resource
-    VideoStatService videoStatService;
+    private VideoStatService videoStatService;
     @Resource
     private VideoMapper videoMapper;
     @Resource
@@ -44,7 +46,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     @Resource(name = "videoAsyncExecutor")
     private Executor asyncExecutor;
     @Resource
-    UserFeignApi userFeignApi;
+    private UserFeignApi userFeignApi;
 
     /**
      * 获取推荐视频
@@ -53,7 +55,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
      */
     @Override
     public ResultData<List<Map<String, Object>>> getRecommendVideos(Integer pageNum, Integer pageSize) {
-//        long start = System.currentTimeMillis();
+        long start = System.currentTimeMillis();
         // 设置默认分页参数
         if (pageNum == null || pageNum < 1) {
             pageNum = 1; // 最小页数1
@@ -119,15 +121,20 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                                 (existing, replacement) -> existing
                         )), asyncExecutor);
 
+        // 在主线程捕获请求上下文
+        // openfeign在异步线程中执行时，RequestContextHolder 无法传递原始请求上下文，所以在提交异步任务前，手动捕获并传递请求上下文
+        RequestAttributes mainThreadAttributes = RequestContextHolder.getRequestAttributes();
         CompletableFuture<Map<Long, UserDTO>> userFuture = CompletableFuture.supplyAsync(() -> {
-            // 调用 Feign 接口获取用户信息
-            List<UserDTO> users = userFeignApi.getBatchUserInfo(uids);
-            return users.stream()
-                    .collect(Collectors.toMap(
-                            UserDTO::getUid,
-                            user -> user,
-                            (existing, replacement) -> existing
-                    ));
+            // 将主线程上下文绑定到子线程
+            RequestContextHolder.setRequestAttributes(mainThreadAttributes);
+            try {
+                return userFeignApi.getBatchUserInfo(uids)
+                        .stream()
+                        .collect(Collectors.toMap(UserDTO::getUid, u -> u));
+            } finally {
+                // 清理子线程上下文
+                RequestContextHolder.resetRequestAttributes();
+            }
         }, asyncExecutor);
 
         // 4. 组合结果
@@ -164,8 +171,8 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                     return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "数据加载失败");
                 });
 
-//        long end = System.currentTimeMillis();
-//        log.info("异步总耗时：{}ms ", end - start);
+        long end = System.currentTimeMillis();
+        log.info("获取推荐视频耗时：{}ms ", end - start);
         return resultFuture.join();
     }
 
@@ -174,16 +181,13 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
      *
      * @param uid   用户id
      * @param video 视频对象
+     * @return 保存视频是否成功
      */
     @Transactional
     @Override
-    public void saveVideo(String uid, Video video) {
+    public boolean saveVideo(String uid, Video video) {
         video.setUid(Long.valueOf(uid));
-        if (videoMapper.insert(video) == 1 && videoStatService.saveVideoStat(video.getVid()) == 1) {
-            ResultData.success("保存视频成功");
-        } else {
-            ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "保存视频失败");
-        }
+        return videoMapper.insert(video) == 1 && videoStatService.saveVideoStat(video.getVid()) == 1;
     }
 
     /**
@@ -203,7 +207,9 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                 map.put("video", video);
                 map.put("stat", videoStat);
                 map.put("category", category);
-                map.put("user", userFeignApi.getUserByUid(video.getUid()));
+                Long uid = video.getUid();
+                UserDTO user = userFeignApi.getUserByUid(uid).getData();
+                map.put("user", user);
                 return ResultData.success(map, "获取视频信息成功");
             }
         }

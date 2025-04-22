@@ -1,7 +1,9 @@
 package com.hiiro.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
@@ -20,10 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -77,9 +76,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 // 设置用户昵称,格式为"hiri_{用户uid}"
                 user.setNickname("hiri_" + user.getUid());
                 // 更新用户昵称
-                if (updateUserById(user) != 1) {
-                    return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新用户信息失败");
-                }
+                updateUserById(user);
             }
             return ResultData.success("注册成功，欢迎加入hirihiri！");
         } else {
@@ -114,8 +111,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         redisUtil.setObjectWithExpire("user:" + uid, loginUser.getUser(), TimeUnit.SECONDS);
         // 返回token和用户信息给前端
         return ResultData.success(
-                new HashMap<String, Object>(
-                        Map.of("user", BeanUtil.copyProperties(getUserByUid(uid), UserDTO.class), "token", token)),
+                new HashMap<>(
+                        Map.of("user", getUserByUid(uid), "token", token)),
                 "登陆成功!");
 
     }
@@ -127,8 +124,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return user User实体
      */
     @Override
-    public User getUserByUsername(String username) {
-        return userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+    public UserDTO getUserByUsername(String username) {
+        return userDTOMapper.selectOne(new LambdaQueryWrapper<UserDTO>().eq(UserDTO::getUsername, username));
     }
 
     /**
@@ -138,20 +135,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return user User实体
      */
     @Override
-    public User getUserByUid(Long uid) {
-        return userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUid, uid));
+    public UserDTO getUserByUid(Long uid) {
+        return userDTOMapper.selectOne(new LambdaQueryWrapper<UserDTO>().eq(UserDTO::getUid, uid));
     }
 
     /**
      * 更新用户信息
      *
      * @param user User实体
-     * @return int
+     * @return ResultData对象
      */
     @Transactional
     @Override
-    public int updateUserById(User user) {
-        return userMapper.updateById(user);
+    public ResultData<String> updateUserById(User user) {
+        if (userMapper.updateById(user) == 1) {
+            return ResultData.success("更新用户信息成功");
+        } else {
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新用户信息失败");
+        }
     }
 
     /**
@@ -184,18 +185,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return ResultData对象
      */
     @Override
-    public ResultData<User> getUserInfo(String uid) {
-        try {
-            // 通过uid获取用户信息
-            Long userId = Long.valueOf(uid);
-            if (Objects.nonNull(getUserByUid(userId))) {
-                return ResultData.success(getUserByUid(userId), "获取用户信息成功");
-            } else {
-                return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+    public ResultData<UserDTO> getUserInfo(String uid) {
+        // 从redis中获取用户信息
+        UserDTO redisUserDTO = redisUtil.getObject("user:" + uid, UserDTO.class);
+        if (Objects.nonNull(redisUserDTO)) {
+            return ResultData.success(redisUserDTO, "获取用户信息成功");
+        } else {
+            try {
+                Long userId = Long.valueOf(uid);
+                // 从数据库中获取用户信息
+                UserDTO userDTO = getUserByUid(userId);
+                if (Objects.nonNull(userDTO)) {
+                    return ResultData.success(userDTO, "获取用户信息成功");
+                } else {
+                    return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("字符串无法转为 Long");
             }
-
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("字符串无法转为 Long");
         }
     }
 
@@ -206,12 +213,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return ResultData对象
      */
     @Override
-    public UserDTO getUserDTOByUid(Long uid) {
+    public ResultData<UserDTO> getUserDTOByUid(Long uid) {
         UserDTO user = userDTOMapper.selectOne(new LambdaQueryWrapper<UserDTO>().eq(UserDTO::getUid, uid));
         if (Objects.nonNull(user)) {
-            return user;
+            return ResultData.success(user);
         }
-        return new UserDTO();
+        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
     }
 
     /**
@@ -227,5 +234,34 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return List.of();
         }
         return userList;
+    }
+
+    /**
+     * 分页获取用户信息
+     *
+     * @param pageNum  页码
+     * @param pageSize 每页数量
+     * @return ResultData对象
+     */
+    @Override
+    public ResultData<List<UserDTO>> getUserPage(Integer pageNum, Integer pageSize) {
+        // 设置默认分页参数
+        if (pageNum == null || pageNum < 1) {
+            pageNum = 1; // 最小页数1
+        } else if (pageNum > 100) {
+            pageNum = 100; // 最大页数100
+        }
+        if (pageSize == null || pageSize < 1) {
+            pageSize = 10; // 默认每页10条
+        } else if (pageSize > 200) {
+            pageSize = 200; // 最大每页200条
+        }
+        Page<UserDTO> page = new Page<>(pageNum, pageSize);
+        IPage<UserDTO> userPage = new LambdaQueryChainWrapper<>(userDTOMapper).page(page);
+        List<UserDTO> userList = userPage.getRecords();
+        if (userList.isEmpty()) {
+            return ResultData.success(Collections.emptyList(), "无用户信息");
+        }
+        return ResultData.success(userList);
     }
 }

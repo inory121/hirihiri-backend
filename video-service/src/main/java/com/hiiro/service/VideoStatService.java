@@ -28,4 +28,18 @@ public interface VideoStatService extends IService<VideoStat> {
      * @return 保存结果
      */
     int saveVideoStat(Long vid);
+    /**
+     * 视频的回复数+1
+     *
+     * @param vid 视频ID
+     * @return 增加结果
+     */
+    int incrementReply(Long vid);
+    /**
+     * 视频的弹幕数+1
+     *
+     * @param vid 视频ID
+     * @return 增加结果
+     */
+    int incrementDanmaku(Long vid);
 }

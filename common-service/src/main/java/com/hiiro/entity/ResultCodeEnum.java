@@ -23,7 +23,9 @@ public enum ResultCodeEnum {
 
     // ====== 自定义状态码 ======
     USER_NOT_EXIST(4001, "用户不存在"),
-    VIDEO_NOT_EXIST(4002, "视频不存在");
+    VIDEO_NOT_EXIST(4002, "视频不存在"),
+    DANMAKU_NOT_EXIST(4003, "弹幕不存在"),
+    COMMENT_NOT_EXIST(4004, "评论不存在");
 
     // ====== 数据库状态码 ======
     // INTERNAL_SERVER_ERROR(50001, "数据库插入失败"), 

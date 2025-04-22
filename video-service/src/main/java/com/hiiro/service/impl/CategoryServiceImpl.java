@@ -11,6 +11,7 @@ import com.hiiro.mapper.CategoryMapper;
 import com.hiiro.service.CategoryService;
 import com.hiiro.utils.RedisUtil;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -23,6 +24,7 @@ import java.util.*;
  * @author hiiro
  * @since 2025-01-28
  */
+@Slf4j
 @Service
 public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
 
@@ -38,8 +40,11 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
      */
     @Override
     public ResultData<List<CategoryDTO>> getCategory() {
+        long start = System.currentTimeMillis();
         List<CategoryDTO> categorys = redisUtil.getList("categoryList",0,CategoryDTO.class);
         if (!categorys.isEmpty()) {
+            long end = System.currentTimeMillis();
+            log.info("获取分类信息耗时：{}ms", end - start);
             return ResultData.success(categorys);
         }
         QueryWrapper<Category> wrapper = new QueryWrapper<>();
@@ -88,7 +93,8 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
         } else {
             return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR,"视频分类信息不存在!");
         }
-
+        long end = System.currentTimeMillis();
+        log.info("获取分类信息耗时：{}ms", end - start);
         return ResultData.success(sortedCategories);
     }
 

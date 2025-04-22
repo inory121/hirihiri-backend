@@ -50,4 +50,5 @@ public class VideoController {
     public ResultData<HashMap<String, Object>> getVideoById(@PathVariable("vid") Integer vid) {
         return videoService.getVideoById(vid);
     }
+
 }

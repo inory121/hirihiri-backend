@@ -7,6 +7,7 @@ import com.hiiro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -65,7 +66,7 @@ public class UserController {
      */
     @Operation(summary = "获取单个用户信息")
     @GetMapping("/info")
-    public ResultData<User> getUserInfo(@RequestHeader("uid") String uid) {
+    public ResultData<UserDTO> getUserInfo(@RequestHeader("uid") String uid) {
         return userService.getUserInfo(uid);
     }
 
@@ -75,6 +76,7 @@ public class UserController {
      */
     @Operation(summary = "获取批量用户信息")
     @PostMapping("/batch/info")
+    @PreAuthorize("@accessControl.isInternalRequest() || hasAnyRole('ROLE_ADMIN','ROLE_SUPER_ADMIN')")
     public List<UserDTO> getBatchUserInfo(@RequestBody List<Long> uids) {
         return userService.getBatchUserInfo(uids);
     }
@@ -84,9 +86,33 @@ public class UserController {
      * @return UserDTO
      */
     @Operation(summary = "获取用户DTO")
-    @GetMapping("/info/dto")
-    public UserDTO getUserByUid(@RequestParam("uid") Long uid) {
+    @GetMapping("/info/{uid}")
+    @PreAuthorize("@accessControl.isInternalRequest() || hasAnyRole('ROLE_ADMIN','ROLE_SUPER_ADMIN')")
+    public ResultData<UserDTO> getUserByUid(@PathVariable("uid") Long uid) {
         return userService.getUserDTOByUid(uid);
+    }
+
+    /**
+     * @param pageNum  页码
+     * @param pageSize 页大小
+     * @return ResultData对象
+     */
+    @Operation(summary = "分页获取用户信息")
+    @GetMapping("/page")
+    @PreAuthorize("hasRole('ROLE_ADMIN')||hasRole('ROLE_SUPER_ADMIN')")
+    public ResultData<List<UserDTO>> getUserPage(@RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                 @RequestParam(name = "pageSize", required = false) Integer pageSize) {
+        return userService.getUserPage(pageNum, pageSize);
+    }
+
+    /**
+     * @param user User实体
+     * @return ResultData对象
+     */
+    @Operation(summary = "更新用户信息")
+    @PostMapping("/update")
+    public ResultData<String> updateUserById(@RequestBody User user) {
+        return userService.updateUserById(user);
     }
 
 }

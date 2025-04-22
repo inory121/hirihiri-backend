@@ -32,8 +32,9 @@ public interface VideoService extends IService<Video> {
      *
      * @param uid   用户id
      * @param video 视频对象
+     * @return 保存视频是否成功
      */
-    void saveVideo(String uid, Video video);
+    boolean saveVideo(String uid, Video video);
 
     /**
      * 根据视频id获取视频

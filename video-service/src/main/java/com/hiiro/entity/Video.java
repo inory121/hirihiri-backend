@@ -30,92 +30,92 @@ public class Video implements Serializable {
     /**
      * 视频ID
      */
-    @Schema(name = "视频ID")
+    @Schema(description = "视频ID",name = "vid")
     @TableId(value = "vid", type = IdType.AUTO)
     private Long vid;
 
     /**
      * 投稿用户ID
      */
-    @Schema(name = "投稿用户ID")
+    @Schema(description = "投稿用户ID",name = "uid")
     private Long uid;
 
     /**
      * 标题
      */
-    @Schema(name = "标题")
+    @Schema(description = "标题",name = "title")
     private String title;
 
     /**
      * 类型 1自制 2转载
      */
-    @Schema(name = "类型 1自制 2转载")
+    @Schema(description = "类型 1自制 2转载",name = "type")
     private Byte type;
 
     /**
      * 作者声明 0不声明 1未经允许禁止转载
      */
-    @Schema(name = "作者声明 0不声明 1未经允许禁止转载")
+    @Schema(description = "作者声明 0不声明 1未经允许禁止转载",name = "auth")
     private Byte auth;
 
     /**
      * 播放总时长 单位秒
      */
-    @Schema(name = "播放总时长 单位秒")
+    @Schema(description = "播放总时长 单位秒",name = "duration")
     private Double duration;
 
     /**
      * 主分区ID
      */
-    @Schema(name = "主分区ID")
+    @Schema(description = "主分区ID",name = "mcId")
     private String mcId;
 
     /**
      * 子分区ID
      */
-    @Schema(name = "子分区ID")
+    @Schema(description = "子分区ID",name = "scId")
     private String scId;
 
     /**
      * 标签
      */
-    @Schema(name = "标签")
+    @Schema(description = "标签",name = "tags")
     private String tags;
 
     /**
      * 简介
      */
-    @Schema(name = "简介")
+    @Schema(description = "简介",name = "descr")
     private String descr;
 
     /**
      * 封面url
      */
-    @Schema(name = "封面url")
+    @Schema(description = "封面url",name = "coverUrl")
     private String coverUrl;
 
     /**
      * 视频url
      */
-    @Schema(name = "视频url")
+    @Schema(description = "视频url",name = "videoUrl")
     private String videoUrl;
 
     /**
      * 状态 0审核中 1已过审 2未通过 3已删除
      */
-    @Schema(name = "状态 0审核中 1已过审 2未通过 3已删除")
+    @Schema(description = "状态 0审核中 1已过审 2未通过 3已删除",name = "status")
     private Byte status;
 
     /**
      * 上传时间
      */
-    @Schema(name = "上传时间")
+    @Schema(description = "上传时间",name = "createDate")
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime pubDate;
+    private LocalDateTime createDate;
 
     /**
      * 删除时间
      */
-    @Schema(name = "删除时间")
+    @Schema(description = "删除时间",name = "delDate")
     private LocalDateTime delDate;
 }

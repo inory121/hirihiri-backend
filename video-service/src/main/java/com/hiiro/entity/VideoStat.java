@@ -30,55 +30,55 @@ public class VideoStat implements Serializable {
      * 视频ID
      */
     @TableId("vid")
-    @Schema(name = "视频ID")
+    @Schema(description = "视频ID",name = "vid")
     private Long vid;
 
     /**
      * 播放数
      */
-    @Schema(name = "播放数")
+    @Schema(description = "播放数",name = "view")
     private Integer view;
 
     /**
      * 弹幕数
      */
-    @Schema(name = "弹幕数")
+    @Schema(description = "弹幕数",name = "danmaku")
     private Integer danmaku;
 
     /**
      * 评论数
      */
-    @Schema(name = "评论数")
+    @Schema(description = "评论数",name = "reply")
     private Integer reply;
 
     /**
      * 收藏数
      */
-    @Schema(name = "收藏数")
+    @Schema(description = "收藏数",name = "favorite")
     private Integer favorite;
 
     /**
      * 投币数
      */
-    @Schema(name = "投币数")
+    @Schema(description = "投币数",name = "coin")
     private Integer coin;
 
     /**
      * 分享数
      */
-    @Schema(name = "分享数")
+    @Schema(description = "分享数",name = "share")
     private Integer share;
 
     /**
      * 获赞数
      */
     @TableField("`like`")
-    @Schema(name = "获赞数")
+    @Schema(description = "获赞数",name = "like")
     private Integer like;
 
     /**
      * 点踩数
      */
-    @Schema(name = "点踩数")
+    @Schema(description = "点踩数",name = "dislike")
     private Integer dislike;
 }

@@ -5,9 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.Collections;
 
 @Data
 @NoArgsConstructor
@@ -18,7 +20,16 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return null;
+        // 根据 User.role 字段返回权限
+        return switch (user.getRole()) {
+            case 0 -> // 普通用户
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+            case 1 -> // 管理员
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            case 2 -> // 超级管理员
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+            default -> Collections.emptyList();
+        };
     }
 
     @Override
@@ -38,7 +49,7 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return user.getState() == 0;
     }
 
     @Override
@@ -48,6 +59,6 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return user.getState() == 0;
     }
 }

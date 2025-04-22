@@ -29,42 +29,42 @@ public class Category implements Serializable {
      */
 
     @TableId(value = "cid", type = IdType.AUTO)
-    @Schema(name = "分区唯一ID")
+    @Schema(description = "分区唯一ID",name = "cid")
     private Integer cId;
 
     /**
      * 主分区ID
      */
-    @Schema(name = "主分区ID")
+    @Schema(description = "主分区ID",name = "mcId")
     private String mcId;
 
     /**
      * 子分区ID
      */
-    @Schema(name = "子分区ID")
+    @Schema(description = "子分区ID",name = "scId")
     private String scId;
 
     /**
      * 主分区名称
      */
-    @Schema(name = "主分区名称")
+    @Schema(description = "主分区名称",name = "mcName")
     private String mcName;
 
     /**
      * 子分区名称
      */
-    @Schema(name = "子分区名称")
+    @Schema(description = "子分区名称",name = "scName")
     private String scName;
 
     /**
      * 描述
      */
-    @Schema(name = "描述")
+    @Schema(description = "描述",name = "descr")
     private String descr;
 
     /**
      * 推荐标签
      */
-    @Schema(name = "推荐标签")
+    @Schema(description = "推荐标签",name = "rcmTag")
     private String rcmTag;
 }

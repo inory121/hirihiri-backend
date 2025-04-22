@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @since 2025-03-09
  */
 @RestController
-@RequestMapping("/videoStat")
+@RequestMapping("/api/videoStat")
 @Tag(name = "视频统计数据接口")
 public class VideoStatController {
 

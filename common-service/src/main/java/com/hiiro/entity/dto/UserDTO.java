@@ -71,6 +71,16 @@ public class UserDTO implements Serializable {
     private Byte vip;
 
     /**
+     * 状态 0正常 1封禁 2注销
+     */
+    private Byte state;
+
+    /**
+     * 角色类型 0普通用户 1管理员 2超级管理员
+     */
+    private Byte role;
+
+    /**
      * 官方认证 0普通用户 1个人认证 2机构认证
      */
     private Byte auth;

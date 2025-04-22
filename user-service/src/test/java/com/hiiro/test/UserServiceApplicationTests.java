@@ -8,6 +8,7 @@ import cn.hutool.jwt.JWTUtil;
 import cn.hutool.jwt.JWTValidator;
 import com.hiiro.UserServiceApplication;
 import com.hiiro.entity.ResultCodeEnum;
+import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.exp.UserException;
 import com.hiiro.utils.MyJwtUtil;
 import com.hiiro.utils.RedisUtil;
@@ -84,6 +85,12 @@ public class UserServiceApplicationTests {
 //        System.out.println(date.before(time));
         Boolean expired = jwtUtil.isTokenExpired("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiIxIiwicm9sZSI6Im5vcm1hbCIsImV4cCI6MjAwMH0.lz0wOCpr-tHkvCHp2XexlnszNUj4RKczzAfhqfj9xFA");
         System.out.println(expired);
+    }
+
+    @Test
+    public void test3() {
+        UserDTO redisUserDTO = redisUtil.getObject("user:" + 2, UserDTO.class);
+        System.out.println(redisUserDTO);
     }
 
 }

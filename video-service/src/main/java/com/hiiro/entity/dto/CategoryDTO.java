@@ -27,19 +27,19 @@ public class CategoryDTO implements Serializable {
     /**
      * 主分区ID
      */
-    @Schema(name = "主分区ID")
+    @Schema(description = "主分区ID",name = "mcId")
     private String mcId;
 
     /**
      * 主分区名称
      */
-    @Schema(name = "主分区名称")
+    @Schema(description = "主分区名称",name = "mcName")
     private String mcName;
 
     /**
      * 主分区名称
      */
-    @Schema(name = "子分区")
+    @Schema(description = "子分区",name = "scList")
     private List<Map<String,Object>> scList;
 
 }

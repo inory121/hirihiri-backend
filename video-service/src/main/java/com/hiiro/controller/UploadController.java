@@ -1,6 +1,7 @@
 package com.hiiro.controller;
 
 import com.alibaba.fastjson2.JSON;
+import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
 import com.hiiro.service.VideoService;
@@ -24,9 +25,9 @@ import java.util.UUID;
 public class UploadController {
 
     @Resource
-    ChunkUtil chunkUtil;
+    private ChunkUtil chunkUtil;
     @Resource
-    OSSUtil ossUtil;
+    private OSSUtil ossUtil;
     @Resource
     private VideoService videoService;
 
@@ -96,7 +97,9 @@ public class UploadController {
         Video video = JSON.parseObject(videoInfoJson, Video.class);
         video.setVideoUrl(videoUrl);
         video.setCoverUrl(coverUrl);
-        videoService.saveVideo(uid, video);
+        if (!videoService.saveVideo(uid, video)) {
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "上传失败");
+        }
         chunkUtil.cleanTempFiles(uploadId);
         return ResultData.success("上传完成");
     }

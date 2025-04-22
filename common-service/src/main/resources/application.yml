@@ -12,7 +12,31 @@ spring:
     password: 12345
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
-
+  cloud:
+    openfeign:
+      httpclient:
+        enabled: true
+      client:
+        config:
+          default:
+            logger-level: full
+            connect-timeout: 3000
+            read-timeout: 3000
+          user-service:
+            logger-level: full
+            connect-timeout: 2000
+            read-timeout: 2000
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+feign:
+  client:
+    config:
+      default:  # 所有Feign客户端生效
+        loggerLevel: FULL
+logging:
+  level:
+    # 指定Feign客户端接口所在包
+    com.hiiro.apis: DEBUG
+    # 或全局开启（不推荐）
+#    root: DEBUG

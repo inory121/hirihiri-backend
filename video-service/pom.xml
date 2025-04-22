@@ -39,12 +39,6 @@
             <artifactId>spring-boot-starter-test</artifactId>
         </dependency>
 
-        <!--consul-->
-        <!--        <dependency>-->
-        <!--            <groupId>org.springframework.cloud</groupId>-->
-        <!--            <artifactId>spring-cloud-starter-consul-discovery</artifactId>-->
-        <!--        </dependency>-->
-
         <!--spring-cloud-alibaba相关-->
         <!-- Nacos 服务发现 -->
         <dependency>
