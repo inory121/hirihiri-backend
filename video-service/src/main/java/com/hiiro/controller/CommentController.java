@@ -2,6 +2,7 @@ package com.hiiro.controller;
 
 import com.hiiro.entity.Comment;
 import com.hiiro.entity.ResultData;
+import com.hiiro.entity.dto.CommentDTO;
 import com.hiiro.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,9 +33,9 @@ public class CommentController {
      * @param vid 视频id
      * @return 评论列表
      */
-    @GetMapping("/get/all/{vid}")
+    @GetMapping("/video/{vid}")
     @Operation(summary = "获取评论列表")
-    public ResultData<List<Comment>> getComments(@PathVariable("vid") Long vid) {
+    public ResultData<List<CommentDTO>> getComments(@PathVariable("vid") Long vid) {
         return commentService.getComments(vid);
     }
 
@@ -46,7 +47,7 @@ public class CommentController {
      */
     @PostMapping("/send")
     @Operation(summary = "添加评论")
-    public ResultData<Comment> sendComment(@RequestBody Comment comment) {
+    public ResultData<CommentDTO> sendComment(@RequestBody Comment comment) {
         return commentService.sendComment(comment);
     }
 

@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +36,7 @@ public class VideoController {
      * @return ResultData对象
      */
     @Operation(summary = "分页获取推荐视频")
-    @GetMapping("/get/recommend")
+    @GetMapping("/recommend")
     public ResultData<List<Map<String, Object>>> getRecommendVideos(@RequestParam(name = "pageNum", required = false) Integer pageNum,
                                                                     @RequestParam(name = "pageSize", required = false) Integer pageSize) {
         return videoService.getRecommendVideos(pageNum, pageSize);
@@ -51,7 +50,7 @@ public class VideoController {
      * @return ResultData对象
      */
     @Operation(summary = "分页获取全部视频")
-    @GetMapping("/get/all")
+    @GetMapping("/all")
     public ResultData<List<Map<String, Object>>> getAllVideos(@RequestParam(name = "pageNum", required = false) Integer pageNum,
                                                               @RequestParam(name = "pageSize", required = false) Integer pageSize) {
         return videoService.getAllVideos(pageNum, pageSize);
@@ -64,7 +63,7 @@ public class VideoController {
      * @return ResultData对象
      */
     @Operation(summary = "获取视频详情")
-    @GetMapping("/get/one/{vid}")
+    @GetMapping("/{vid}")
     public ResultData<HashMap<String, Object>> getVideoById(@PathVariable("vid") Integer vid) {
         return videoService.getVideoById(vid);
     }

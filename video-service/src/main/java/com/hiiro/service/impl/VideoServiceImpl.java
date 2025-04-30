@@ -90,19 +90,17 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         CompletableFuture<Map<Pair<String, String>, Category>> categoryFuture = CompletableFuture.supplyAsync(() -> {
             // 安全构造IN条件
             LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
-            wrapper.nested(q -> {
-                mcScIdPairs.forEach(pair ->
-                        q.or(w ->
-                                w.eq(Category::getMcId, pair.getKey())
-                                        .eq(Category::getScId, pair.getValue())
-                        )
-                );
-            });
+            wrapper.nested(queryWrapper -> mcScIdPairs.forEach(pair ->
+                    queryWrapper.or(queryWrapper1 ->
+                            queryWrapper1.eq(Category::getMcId, pair.getKey())
+                                    .eq(Category::getScId, pair.getValue())
+                    )
+            ));
             return categoryService.list(wrapper)
                     .stream()
                     .collect(Collectors.toMap(
-                            c -> Pair.of(c.getMcId(), c.getScId()),
-                            c -> c
+                            category -> Pair.of(category.getMcId(), category.getScId()),
+                            category -> category
                     ));
         }, asyncExecutor); // 使用自定义线程池
 
@@ -111,7 +109,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                         .stream()
                         .collect(Collectors.toMap(
                                 VideoStat::getVid,
-                                vs -> vs,
+                                videoStat -> videoStat,
                                 (existing, replacement) -> existing
                         )), asyncExecutor);
 
@@ -124,7 +122,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
             try {
                 return userFeignApi.getBatchUserInfo(uids)
                         .stream()
-                        .collect(Collectors.toMap(UserDTO::getUid, u -> u));
+                        .collect(Collectors.toMap(UserDTO::getUid, userDTO -> userDTO));
             } finally {
                 // 清理子线程上下文
                 RequestContextHolder.resetRequestAttributes();
@@ -159,7 +157,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                         return map;
                     }).collect(Collectors.toList());
                 }, asyncExecutor)
-                .thenApply(a -> ResultData.success(a, "推荐视频加载成功"))
+                .thenApply(a -> ResultData.success(a, "获取推荐视频成功"))
                 .exceptionally(e -> {
                     log.error("推荐视频加载失败", e);
                     return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "数据加载失败");
@@ -252,9 +250,6 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
         Video originalVideo = videoMapper.selectById(video.getVid());
         if (Objects.isNull(originalVideo)) {
             return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST);
-        }
-        if (!coverFile.isEmpty()) {
-
         }
         return videoMapper.updateById(video) == 1 ? ResultData.success(video, "更新视频成功") :
                 ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新视频失败");

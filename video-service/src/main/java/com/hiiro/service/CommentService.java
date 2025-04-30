@@ -3,6 +3,7 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.Comment;
 import com.hiiro.entity.ResultData;
+import com.hiiro.entity.dto.CommentDTO;
 
 import java.util.List;
 
@@ -22,7 +23,7 @@ public interface CommentService extends IService<Comment> {
      * @param vid 视频id
      * @return 评论列表
      */
-    ResultData<List<Comment>> getComments(Long vid);
+    ResultData<List<CommentDTO>> getComments(Long vid);
 
     /**
      * 发送评论
@@ -30,5 +31,5 @@ public interface CommentService extends IService<Comment> {
      * @param comment 评论
      * @return ResultData对象
      */
-    ResultData<Comment> sendComment(Comment comment);
+    ResultData<CommentDTO> sendComment(Comment comment);
 }

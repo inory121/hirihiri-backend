@@ -32,7 +32,7 @@ public class DanmakuController {
      * @param vid 视频id
      * @return 弹幕列表
      */
-    @GetMapping("/get/{vid}")
+    @GetMapping("/video/{vid}")
     @Operation(summary = "获取弹幕列表")
     public ResultData<List<Danmaku>> getDanmakuList(@PathVariable("vid") Long vid) {
         return danmakuService.getDanmakuList(vid);

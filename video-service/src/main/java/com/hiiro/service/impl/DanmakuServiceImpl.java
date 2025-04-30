@@ -40,9 +40,9 @@ public class DanmakuServiceImpl extends ServiceImpl<DanmakuMapper, Danmaku> impl
     public ResultData<List<Danmaku>> getDanmakuList(Long vid) {
         List<Danmaku> danmakuList = danmakuMapper.selectList(new LambdaQueryWrapper<Danmaku>().eq(Danmaku::getVid, vid));
         if (Objects.isNull(danmakuList)) {
-            return ResultData.fail(ResultCodeEnum.DANMAKU_NOT_EXIST, "获取弹幕列表失败");
+            return ResultData.fail(ResultCodeEnum.DANMAKU_NOT_EXIST, "获取弹幕信息失败");
         }
-        return ResultData.success(danmakuList);
+        return ResultData.success(danmakuList, "获取弹幕信息成功");
     }
 
     /**

@@ -45,7 +45,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
         if (!categorys.isEmpty()) {
             long end = System.currentTimeMillis();
             log.info("获取分类信息耗时：{}ms", end - start);
-            return ResultData.success(categorys);
+            return ResultData.success(categorys, "获取分区信息成功");
         }
         QueryWrapper<Category> wrapper = new QueryWrapper<>();
         List<Category> list = categoryMapper.selectList(wrapper);
@@ -95,7 +95,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
         }
         long end = System.currentTimeMillis();
         log.info("获取分类信息耗时：{}ms", end - start);
-        return ResultData.success(sortedCategories);
+        return ResultData.success(sortedCategories,"获取视频分区成功");
     }
 
     /**
