@@ -32,7 +32,23 @@ public interface UserService extends IService<User> {
      * @param user User实体
      * @return ResultData对象
      */
-    ResultData<HashMap<String, Object>> login(User user);
+    ResultData<HashMap<String, Object>> login(User user, Integer requiredRole);
+
+    /**
+     * 普通用户登录
+     *
+     * @param user User实体
+     * @return ResultData对象
+     */
+    ResultData<HashMap<String, Object>> userLogin(User user);
+
+    /**
+     * 管理员登录
+     *
+     * @param user User实体
+     * @return ResultData对象
+     */
+    ResultData<HashMap<String, Object>> adminLogin(User user);
 
     /**
      * 通过用户名获取用户信息
@@ -61,11 +77,11 @@ public interface UserService extends IService<User> {
     /**
      * 用户登出
      *
-     * @param uid 用户ID
+     * @param uid   用户ID
      * @param token token
      * @return ResultData对象
      */
-    ResultData<String> logout(String uid,String token);
+    ResultData<String> logout(String uid, String token);
 
     /**
      * 获取用户信息
@@ -94,9 +110,10 @@ public interface UserService extends IService<User> {
     /**
      * 获取用户分页信息
      *
-     * @param pageNum 页码
+     * @param pageNum  页码
      * @param pageSize 页大小
      * @return ResultData对象
      */
     ResultData<List<UserDTO>> getUserPage(Integer pageNum, Integer pageSize);
+
 }

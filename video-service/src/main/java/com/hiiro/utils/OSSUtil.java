@@ -184,4 +184,16 @@ public class OSSUtil {
         ossClient.completeMultipartUpload(completeRequest);
     }
 
+    /**
+     * 删除文件
+     *
+     * @param videoPath 文件路径
+     */
+    public void deleteFile(String videoPath) {
+        try {
+            ossClient.deleteObject(ossConfig.getBucketName(), videoPath);
+        } catch (Exception e) {
+            log.error("文件删除失败: {}", videoPath, e);
+        }
+    }
 }

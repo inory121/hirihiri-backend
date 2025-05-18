@@ -33,6 +33,7 @@
         <spring.boot.web.version>3.2.4</spring.boot.web.version>
         <spring.boot.webflux.version>3.2.4</spring.boot.webflux.version>
         <spring.boot.redis.version>3.4.2</spring.boot.redis.version>
+        <spring.boot.elasticsearch.version>3.4.5</spring.boot.elasticsearch.version>
         <spring.boot.security.version>3.2.4</spring.boot.security.version>
         <spring.cloud.alibaba.version>2023.0.3.2</spring.cloud.alibaba.version>
         <spring.cloud.version>2023.0.1</spring.cloud.version>
@@ -159,6 +160,13 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-pool2</artifactId>
                 <version>${commons.pool2.version}</version>
+            </dependency>
+
+            <!--elasticsearch-->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+                <version>${spring.boot.elasticsearch.version}</version>
             </dependency>
 
             <!-- 阿里云 OSS SDK -->

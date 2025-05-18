@@ -2,6 +2,8 @@ package com.hiiro.test;
 
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.crypto.SecureUtil;
+import cn.hutool.crypto.asymmetric.RSA;
 import cn.hutool.jwt.JWT;
 import cn.hutool.jwt.JWTHeader;
 import cn.hutool.jwt.JWTUtil;
@@ -16,6 +18,7 @@ import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.security.KeyPair;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -91,6 +94,13 @@ public class UserServiceApplicationTests {
     public void test3() {
         UserDTO redisUserDTO = redisUtil.getObject("user:" + 2, UserDTO.class);
         System.out.println(redisUserDTO);
+    }
+    @Test
+    public void test4() {
+        KeyPair rsa = SecureUtil.generateKeyPair("RSA");
+        System.out.println(SecureUtil.rsa().getPublicKey());
+        System.out.println(rsa.getPrivate());
+        System.out.println(rsa.getPublic());
     }
 
 }

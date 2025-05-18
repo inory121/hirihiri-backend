@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: 11453
 spring:
   application:
     name: video-service
@@ -21,6 +21,8 @@ spring:
     password: 12345
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
+  elasticsearch:
+    uris: http://localhost:9200
   data:
     redis:
       database: 1

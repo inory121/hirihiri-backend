@@ -1,7 +1,7 @@
 package com.hiiro.mapper;
 
-import com.hiiro.entity.Comment;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.hiiro.entity.Comment;
 import org.apache.ibatis.annotations.Mapper;
 
 

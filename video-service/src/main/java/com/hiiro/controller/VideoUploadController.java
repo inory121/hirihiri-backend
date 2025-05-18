@@ -1,35 +1,20 @@
 package com.hiiro.controller;
 
-import com.alibaba.fastjson2.JSON;
-import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
-import com.hiiro.entity.Video;
-import com.hiiro.service.VideoService;
-import com.hiiro.utils.ChunkUtil;
-import com.hiiro.utils.OSSUtil;
+import com.hiiro.service.VideoUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.UUID;
-
 @Tag(name = "视频上传接口")
 @RestController
-@RequestMapping("/api/upload")
-public class UploadController {
+@RequestMapping("/api/video/upload")
+public class VideoUploadController {
 
     @Resource
-    private ChunkUtil chunkUtil;
-    @Resource
-    private OSSUtil ossUtil;
-    @Resource
-    private VideoService videoService;
+    VideoUploadService videoUploadService;
 
     /**
      * 初始化分片上传
@@ -39,8 +24,7 @@ public class UploadController {
     @Operation(summary = "初始化分片上传")
     @PostMapping("/init")
     public ResultData<String> initUpload() {
-        String uploadId = UUID.randomUUID().toString();
-        return ResultData.success(uploadId, "操作成功");
+        return videoUploadService.initUpload();
     }
 
     /**
@@ -62,8 +46,7 @@ public class UploadController {
             @RequestParam("totalChunks") int totalChunks,
             @RequestParam("fileName") String fileName) {
 
-        chunkUtil.saveChunk(uploadId, chunkNumber, chunk, fileName, totalChunks);
-        return ResultData.success("分片上传成功");
+        return videoUploadService.uploadChunk(chunk, uploadId, chunkNumber, totalChunks, fileName);
     }
 
     /**
@@ -83,25 +66,21 @@ public class UploadController {
             @RequestPart("fileName") String fileName,
             @RequestHeader("uid") String uid,
             @RequestPart("coverFile") MultipartFile coverFile,
-            @RequestPart("videoInfo") String videoInfoJson
-    ) {
-        // 处理视频文件
-        List<File> chunks = chunkUtil.getChunks(uploadId);
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        String videoUrl = ossUtil.uploadPartsDirectly(today + "/" + uid + "/video/" + fileName, chunks);
-        // 处理封面文件
-        String coverUrl = "";
-        if (!coverFile.isEmpty()) {
-            coverUrl = ossUtil.uploadFile(today + "/" + uid + "/cover/" + coverFile.getOriginalFilename(), coverFile);
-        }
-        Video video = JSON.parseObject(videoInfoJson, Video.class);
-        video.setVideoUrl(videoUrl);
-        video.setCoverUrl(coverUrl);
-        if (!videoService.saveVideo(uid, video)) {
-            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "上传失败");
-        }
-        chunkUtil.cleanTempFiles(uploadId);
-        return ResultData.success("上传完成");
+            @RequestPart("videoInfo") String videoInfoJson) {
+
+        return videoUploadService.completeUpload(uploadId, fileName, uid, coverFile, videoInfoJson);
+    }
+
+    /**
+     * 取消上传
+     *
+     * @param uploadId 上传ID
+     * @return ResultData对象
+     */
+    @Operation(summary = "取消上传")
+    @PostMapping("/cancel")
+    public ResultData<String> cancelUpload(@RequestPart("uploadId") String uploadId) {
+        return videoUploadService.cancelUpload(uploadId);
     }
 
 }

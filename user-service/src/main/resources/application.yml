@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 11452
 spring:
   application:
     name: user-service

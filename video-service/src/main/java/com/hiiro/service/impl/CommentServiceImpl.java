@@ -9,7 +9,6 @@ import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.dto.CommentDTO;
 import com.hiiro.entity.dto.UserDTO;
-import com.hiiro.mapper.CommentDTOMapper;
 import com.hiiro.mapper.CommentMapper;
 import com.hiiro.service.CommentService;
 import com.hiiro.service.VideoStatService;

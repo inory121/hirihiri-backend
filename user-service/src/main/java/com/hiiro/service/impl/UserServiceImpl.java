@@ -90,9 +90,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @param user User实体
      * @return ResultData对象
      */
-    @Transactional
     @Override
-    public ResultData<HashMap<String, Object>> login(User user) {
+    public ResultData<HashMap<String, Object>> login(User user, Integer requiredRole) {
         // 创建一个UsernamePasswordAuthenticationToken对象，用于认证用户
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                 user.getUsername(), user.getPassword());
@@ -102,6 +101,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         UserDetailsImpl loginUser = (UserDetailsImpl) authenticate.getPrincipal();
         if (loginUser.getUser().getState() != 0) {
             return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户被封禁或已注销");
+        }
+        Byte userRole = loginUser.getUser().getRole();
+        if (userRole == null) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "角色信息缺失");
+        }
+        if (requiredRole != null) {
+            if (requiredRole == 1) { // 管理员登录
+                if (userRole < 1) {
+                    return ResultData.fail(ResultCodeEnum.FORBIDDEN, "无管理员权限");
+                }
+            } else if (requiredRole == 0) { // 普通用户登录
+                if (userRole != 0) {
+                    return ResultData.fail(ResultCodeEnum.FORBIDDEN, "无普通用户权限");
+                }
+            }
         }
         // 取出用户uid放入JWT令牌中
         Long uid = loginUser.getUser().getUid();
@@ -116,6 +130,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 "登陆成功!");
 
     }
+
+    /**
+     * 普通用户登录
+     *
+     * @param user User实体
+     * @return ResultData对象
+     */
+    @Override
+    public ResultData<HashMap<String, Object>> userLogin(User user) {
+        return login(user, 0);
+    }
+
+    /**
+     * 管理员登录
+     *
+     * @param user User实体
+     * @return ResultData对象
+     */
+    @Override
+    public ResultData<HashMap<String, Object>> adminLogin(User user) {
+        return login(user, 1);
+    }
+
 
     /**
      * 通过用户名获取用户信息
@@ -161,7 +198,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @param uid 用户ID
      * @return ResultData对象
      */
-    @Transactional
     @Override
     public ResultData<String> logout(String uid, String token) {
         if (!uid.isEmpty()) {
@@ -264,4 +300,5 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         return ResultData.success(userList);
     }
+
 }

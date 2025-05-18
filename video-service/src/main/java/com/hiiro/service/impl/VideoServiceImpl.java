@@ -1,5 +1,8 @@
 package com.hiiro.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
@@ -8,6 +11,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hiiro.apis.UserFeignApi;
 import com.hiiro.entity.*;
+import com.hiiro.entity.document.VideoDocument;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.VideoMapper;
 import com.hiiro.service.CategoryService;
@@ -16,6 +20,17 @@ import com.hiiro.service.VideoStatService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.Criteria;
+import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
+import org.springframework.data.elasticsearch.core.query.HighlightQuery;
+import org.springframework.data.elasticsearch.core.query.Query;
+import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestAttributes;
@@ -50,6 +65,8 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     private Executor asyncExecutor;
     @Resource
     private UserFeignApi userFeignApi;
+    @Resource
+    ElasticsearchOperations esOperations;
 
     // 校验并构建分页对象
     private Page<Video> validateAndBuildPage(Integer pageNum, Integer pageSize) {
@@ -207,7 +224,15 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     @Override
     public boolean saveVideo(String uid, Video video) {
         video.setUid(Long.valueOf(uid));
-        return videoMapper.insert(video) == 1 && videoStatService.saveVideoStat(video.getVid()) == 1;
+        if (videoMapper.insert(video) == 1 && videoStatService.saveVideoStat(video.getVid()) == 1) {
+            try {
+                esOperations.save(BeanUtil.copyProperties(video, VideoDocument.class));
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+        return false;
     }
 
     /**
@@ -255,6 +280,13 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                 ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新视频失败");
     }
 
+    /**
+     * 逻辑删除视频
+     *
+     * @param vid    视频id
+     * @param status 状态
+     * @return ResultData对象
+     */
     @Override
     public ResultData<Video> updateVideoStatus(Long vid, Byte status) {
         LambdaUpdateChainWrapper<Video> chainWrapper = new LambdaUpdateChainWrapper<>(videoMapper).eq(Video::getVid, vid);
@@ -266,6 +298,101 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                     ResultData.success("更新视频成功") : ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新视频失败");
         }
         return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "请求参数有误");
+    }
+
+    /**
+     * 搜索视频
+     *
+     * @param keyword   关键字
+     * @param pageNum   页码
+     * @param pageSize  页大小
+     * @return ResultData对象
+     */
+    @Override
+    public ResultData<List<Map<String, Object>>> searchVideos(String keyword, Integer pageNum, Integer pageSize) {
+        // 1. 构建 NativeQuery，多字段匹配 + 高亮
+        HighlightParameters highlightParams = HighlightParameters.builder()
+                .withPreTags("<em class='keyword'>")
+                .withPostTags("</em>")
+                .build();
+
+        List<HighlightField> highlightFields = List.of(
+                new HighlightField("title") // 只保留title的高亮
+        );
+
+        Highlight highlight = new Highlight(highlightParams, highlightFields);
+
+        NativeQuery query = NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> b
+                        .should(s -> s.wildcard(w -> w  // 通配符查询
+                                .field("title")
+                                .value("*" + keyword + "*")
+                                .caseInsensitive(true)
+                                .boost(5.0f)))
+                        .should(s -> s.multiMatch(multi -> multi
+                                .query(keyword)
+                                .fields("title^3", "descr", "tags^2")
+                                .type(TextQueryType.Phrase)
+                        ))
+                        .should(s -> s.multiMatch(multi -> multi
+                                .query(keyword)
+                                .fields("title.pinyin", "descr.pinyin", "tags.pinyin")
+                                .type(TextQueryType.Phrase)
+                        ))
+                        .minimumShouldMatch("1") // 至少匹配一个条件
+                ))
+                .withSort(s -> s.field(f -> f
+                        .field("_score")
+                        .order(SortOrder.Desc)
+                ))
+                .withHighlightQuery(new HighlightQuery(highlight, VideoDocument.class))
+                .build();
+
+        // 2. 执行搜索并提取视频 ID 列表
+        SearchHits<VideoDocument> search = esOperations.search(query, VideoDocument.class);
+        search.getSearchHits().forEach(hit -> {
+            System.out.println("视频" + hit.getContent().getVid() + " 得分：" + hit.getScore());
+        });
+        // 3. 按ES顺序收集结果（LinkedHashMap保持顺序）
+        LinkedHashMap<Long, SearchHit<VideoDocument>> orderedHits = new LinkedHashMap<>();
+        Map<Long, String> titleHighlightMap = new HashMap<>(); // 高亮存储
+
+        search.get().forEach(hit -> {
+            Long vid = hit.getContent().getVid();
+            orderedHits.put(vid, hit);
+            // 处理高亮
+            if (hit.getHighlightFields().containsKey("title")) {
+                List<String> highlights = hit.getHighlightFields().get("title");
+                if (!highlights.isEmpty()) {
+                    titleHighlightMap.put(vid, highlights.get(0));
+                }
+            }
+        });
+
+        // 4. 按ES顺序查询数据库
+        List<Video> videos = new LambdaQueryChainWrapper<>(videoMapper)
+                .in(Video::getVid, new ArrayList<>(orderedHits.keySet()))
+                .list();
+
+        // 5. 按ES顺序重组结果
+        List<Video> orderedVideos = new ArrayList<>();
+        orderedHits.forEach((vid, hit) ->
+                videos.stream()
+                        .filter(v -> v.getVid().equals(vid))
+                        .findFirst()
+                        .ifPresent(video -> {
+                            // 应用高亮标题
+                            if (titleHighlightMap.containsKey(vid)) {
+                                video.setTitle(titleHighlightMap.get(vid));
+                            }
+                            orderedVideos.add(video);
+                        })
+        );
+
+        // 6. 分页处理
+        Page<Video> page = validateAndBuildPage(pageNum, pageSize);
+        page.setRecords(orderedVideos);
+        return processVideoPage(page);
     }
 
 }

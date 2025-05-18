@@ -2,6 +2,7 @@ package com.hiiro.controller;
 
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
+import com.hiiro.entity.document.VideoDocument;
 import com.hiiro.service.VideoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -68,21 +69,31 @@ public class VideoController {
         return videoService.getVideoById(vid);
     }
 
-    @Operation(summary = "更改视频状态")
+    /**
+     * 逻辑删除视频
+     *
+     * @param video 视频对象
+     * @return ResultData对象
+     */
+    @Operation(summary = "逻辑删除视频")
     @PostMapping("/update/status")
     public ResultData<Video> updateVideoStatus(@RequestBody Video video) {
         return videoService.updateVideoStatus(video.getVid(), video.getStatus());
     }
-//    /**
-//     * 修改视频信息
-//     *
-//     * @param video 视频对象
-//     * @return ResultData对象
-//     */
-//    @Operation(summary = "修改视频信息")
-//    @PostMapping("/update")
-//    public ResultData<Video> updateVideo(@RequestBody Video video,@RequestParam("coverFile") MultipartFile coverFile) {
-//        return videoService.updateVideo(video,coverFile);
-//    }
 
+    /**
+     * 搜索视频
+     *
+     * @param keyword  关键词
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
+     * @return ResultData对象
+     */
+    @Operation(summary = "搜索视频")
+    @GetMapping("/search")
+    public ResultData<List<Map<String, Object>>> searchVideos(@RequestParam("keyword") String keyword,
+                                                              @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                              @RequestParam(name = "pageSize", required = false) Integer pageSize) {
+        return videoService.searchVideos(keyword, pageNum, pageSize);
+    }
 }

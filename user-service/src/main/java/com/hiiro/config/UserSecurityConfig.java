@@ -55,11 +55,11 @@ public class UserSecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
-                                auth.requestMatchers( "/api/**",
+                                auth.requestMatchers("/api/**",
                                                 "/doc.html",
                                                 "/swagger-ui.html",
                                                 "/swagger-ui*/**", "/swagger-resources/**",
-                                                "/v3/**", "/webjars/**","/actuator/**"
+                                                "/v3/**", "/webjars/**", "/actuator/**"
                                         )
 //                                authorizeRequests.requestMatchers("**")
 //                                        .anonymous()
@@ -87,7 +87,6 @@ public class UserSecurityConfig {
                 if (userDetailsOptional.isEmpty() || !passwordEncoder().matches(password, userDetailsOptional.get().getPassword())) {
                     // 用户不存在或密码匹配失败抛出异常
                     throw new UserException(ResultCodeEnum.UNAUTHORIZED, "用户名或密码验证失败!");
-//                    throw new BadCredentialsException("用户名或密码验证失败!");
                 }
 
                 UserDetails loginUser = userDetailsOptional.get();

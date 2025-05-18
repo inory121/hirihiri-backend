@@ -3,6 +3,7 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
+import com.hiiro.entity.document.VideoDocument;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
@@ -63,6 +64,22 @@ public interface VideoService extends IService<Video> {
      */
     ResultData<Video> updateVideo(Video video, MultipartFile coverFile);
 
+    /**
+     * 逻辑删除视频
+     *
+     * @param vid    视频id
+     * @param status 状态
+     * @return ResultData对象
+     */
+    ResultData<Video> updateVideoStatus(Long vid, Byte status);
 
-    ResultData<Video> updateVideoStatus(Long vid,Byte status);
+    /**
+     * 搜索视频
+     *
+     * @param keyword   关键字
+     * @param pageNum   分页页数
+     * @param pageSize  分页大小
+     * @return ResultData对象
+     */
+    ResultData<List<Map<String, Object>>> searchVideos(String keyword, Integer pageNum, Integer pageSize);
 }

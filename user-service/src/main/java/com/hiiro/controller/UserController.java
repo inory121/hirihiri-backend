@@ -43,10 +43,20 @@ public class UserController {
      * @param user User实体
      * @return ResultData对象
      */
-    @Operation(summary = "登录")
+    @Operation(summary = "普通用户登录")
     @PostMapping("/login")
-    public ResultData<HashMap<String, Object>> login(@RequestBody User user) {
-        return userService.login(user);
+    public ResultData<HashMap<String, Object>> userLogin(@RequestBody User user) {
+        return userService.userLogin(user);
+    }
+
+    /**
+     * @param user User实体
+     * @return ResultData对象
+     */
+    @Operation(summary = "管理员登录")
+    @PostMapping("/admin/login")
+    public ResultData<HashMap<String, Object>> adminLogin(@RequestBody User user) {
+        return userService.adminLogin(user);
     }
 
     /**
