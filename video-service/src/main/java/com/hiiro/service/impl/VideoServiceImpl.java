@@ -24,10 +24,7 @@ import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.Criteria;
-import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.data.elasticsearch.core.query.HighlightQuery;
-import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
 import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
 import org.springframework.data.elasticsearch.core.query.highlight.HighlightParameters;
@@ -174,14 +171,14 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                         return map;
                     }).collect(Collectors.toList());
                 }, asyncExecutor)
-                .thenApply(a -> ResultData.success(a, "获取推荐视频成功"))
+                .thenApply(a -> ResultData.success(a, "获取视频成功"))
                 .exceptionally(e -> {
-                    log.error("推荐视频加载失败", e);
+                    log.error("视频加载失败", e);
                     return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "数据加载失败");
                 });
 
         long end = System.currentTimeMillis();
-        log.info("获取推荐视频耗时：{}ms ", end - start);
+        log.info("获取视频耗时：{}ms ", end - start);
         return resultFuture.join();
     }
 
@@ -350,6 +347,9 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 
         // 2. 执行搜索并提取视频 ID 列表
         SearchHits<VideoDocument> search = esOperations.search(query, VideoDocument.class);
+        if (search.getTotalHits() == 0) {
+            return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST);
+        }
         search.getSearchHits().forEach(hit -> {
             System.out.println("视频" + hit.getContent().getVid() + " 得分：" + hit.getScore());
         });

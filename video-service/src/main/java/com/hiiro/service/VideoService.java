@@ -3,7 +3,6 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
-import com.hiiro.entity.document.VideoDocument;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;

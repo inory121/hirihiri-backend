@@ -2,7 +2,6 @@ package com.hiiro.controller;
 
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
-import com.hiiro.entity.document.VideoDocument;
 import com.hiiro.service.VideoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
