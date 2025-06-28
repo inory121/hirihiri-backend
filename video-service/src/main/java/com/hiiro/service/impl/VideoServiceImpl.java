@@ -177,9 +177,11 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                     return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "数据加载失败");
                 });
 
-        long end = System.currentTimeMillis();
-        log.info("获取视频耗时：{}ms ", end - start);
-        return resultFuture.join();
+        return resultFuture.thenApply(result -> {
+            long end = System.currentTimeMillis();
+            log.info("获取视频耗时：{}ms ", end - start);
+            return result;
+        }).join();
     }
 
     /**
@@ -300,9 +302,9 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     /**
      * 搜索视频
      *
-     * @param keyword   关键字
-     * @param pageNum   页码
-     * @param pageSize  页大小
+     * @param keyword  关键字
+     * @param pageNum  页码
+     * @param pageSize 页大小
      * @return ResultData对象
      */
     @Override
@@ -345,14 +347,14 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                 .withHighlightQuery(new HighlightQuery(highlight, VideoDocument.class))
                 .build();
 
-        // 2. 执行搜索并提取视频 ID 列表
+        // 2. 执行搜索
         SearchHits<VideoDocument> search = esOperations.search(query, VideoDocument.class);
         if (search.getTotalHits() == 0) {
             return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST);
         }
-        search.getSearchHits().forEach(hit -> {
-            System.out.println("视频" + hit.getContent().getVid() + " 得分：" + hit.getScore());
-        });
+//        search.getSearchHits().forEach(hit -> {
+//            System.out.println("视频" + hit.getContent().getVid() + " 得分：" + hit.getScore());
+//        });
         // 3. 按ES顺序收集结果（LinkedHashMap保持顺序）
         LinkedHashMap<Long, SearchHit<VideoDocument>> orderedHits = new LinkedHashMap<>();
         Map<Long, String> titleHighlightMap = new HashMap<>(); // 高亮存储

@@ -9,13 +9,17 @@ import cn.hutool.jwt.JWTUtil;
 import cn.hutool.jwt.JWTValidator;
 import com.hiiro.UserServiceApplication;
 import com.hiiro.entity.ResultCodeEnum;
+import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.exp.UserException;
 import com.hiiro.utils.MyJwtUtil;
 import com.hiiro.utils.RedisUtil;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.IndexOperations;
 
 import java.security.KeyPair;
 import java.util.Date;
@@ -30,10 +34,19 @@ public class UserServiceApplicationTests {
 
     @Resource
     MyJwtUtil jwtUtil;
-
+    @Resource
+    ElasticsearchOperations esOperations;
+    // 创建ES索引
+    @DisplayName("创建索引")
     @Test
-    public void test1(){
-//        redisUtil.delete("user:2");
+    void createESIndex() {
+        IndexOperations indexOps = esOperations.indexOps(UserDocument.class);
+        System.out.println(indexOps.exists());
+        if (indexOps.exists()) {
+            indexOps.delete();
+        }
+        indexOps.create();
+        indexOps.putMapping();
     }
 
     @Test

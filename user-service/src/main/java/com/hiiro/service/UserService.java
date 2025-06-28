@@ -3,6 +3,7 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
+import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.UserDTO;
 
 import java.util.HashMap;
@@ -116,4 +117,13 @@ public interface UserService extends IService<User> {
      */
     ResultData<List<UserDTO>> getUserPage(Integer pageNum, Integer pageSize);
 
+    /**
+     * 搜索用户
+     *
+     * @param keyword  关键词
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
+     * @return ResultData对象
+     */
+    ResultData<List<UserDocument>> searchUsers(String keyword, Integer pageNum, Integer pageSize);
 }

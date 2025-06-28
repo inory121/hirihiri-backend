@@ -7,6 +7,7 @@ import com.hiiro.entity.Video;
 import com.hiiro.service.VideoService;
 import com.hiiro.service.VideoUploadService;
 import com.hiiro.utils.ChunkUtil;
+import com.hiiro.utils.FileValidationUtils;
 import com.hiiro.utils.OSSUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +18,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,6 +54,15 @@ public class VideoUploadServiceImpl implements VideoUploadService {
      */
     @Override
     public ResultData<String> uploadChunk(MultipartFile chunk, String uploadId, int chunkNumber, int totalChunks, String fileName) {
+        if (chunkNumber == 1){
+            try {
+                String fileExtension = FileValidationUtils.validateExtension(fileName, "video");
+                FileValidationUtils.validateMagicNumber(chunk, fileExtension);
+            } catch (IOException | IllegalArgumentException e) {
+                log.warn("视频文件校验失败: {}", e.getMessage());
+                return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "Σ( ° △ °|||) 上传格式不被支持");
+            }
+        }
         chunkUtil.saveChunk(uploadId, chunkNumber, chunk, fileName, totalChunks);
         return ResultData.success("分片上传成功");
     }
@@ -113,14 +122,17 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         String fileExtension = validateCoverFile(originalFilename, coverFile.getSize());
 
         // 提取基础名（去掉扩展名）
-        String baseName = originalFilename.substring(0, originalFilename.lastIndexOf(".")) + fileExtension;
+        String baseName = null;
+        if (originalFilename != null) {
+            baseName = originalFilename.substring(0, originalFilename.lastIndexOf(".")) + fileExtension;
+        }
 
         // 移除非安全字符（可选）
 //        String safeBaseName = baseName.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\s\\-_()]", "_");
 
         // 构建安全文件名：原始基础名 + UUID + 扩展名
 //        String safeFileName = baseName + "_" + UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10) + fileExtension;
-
+        FileValidationUtils.validateMagicNumber(coverFile, fileExtension);
         // 构建路径并上传
         String coverPath = generateStoragePath(date, uid, "cover", baseName);
         return ossUtil.uploadFile(coverPath, coverFile);
@@ -132,21 +144,33 @@ public class VideoUploadServiceImpl implements VideoUploadService {
      * @param filename 文件名
      * @param size     文件大小
      */
+//    private String validateCoverFile(String filename, long size) {
+//        if (filename == null || filename.isBlank()) {
+//            throw new IllegalArgumentException("文件名无效");
+//        }
+//
+//        int lastDotIndex = filename.lastIndexOf(".");
+//        if (lastDotIndex <= 0 || lastDotIndex == filename.length() - 1) {
+//            throw new IllegalArgumentException("文件扩展名无效");
+//        }
+//
+//        String fileExtension = filename.substring(lastDotIndex).toLowerCase();
+//
+//        List<String> allowedExtensions = Arrays.asList(".jpg", ".jpeg", ".png", ".gif", ".webp");
+//        if (!allowedExtensions.contains(fileExtension)) {
+//            throw new IllegalArgumentException("不支持的文件类型: " + fileExtension);
+//        }
+//
+//        return fileExtension;
+//    }
     private String validateCoverFile(String filename, long size) {
-        if (filename == null || filename.isBlank()) {
-            throw new IllegalArgumentException("文件名无效");
-        }
+        // 调用通用扩展名校验
+        String fileExtension = FileValidationUtils.validateExtension(filename, "image");
 
-        int lastDotIndex = filename.lastIndexOf(".");
-        if (lastDotIndex <= 0 || lastDotIndex == filename.length() - 1) {
-            throw new IllegalArgumentException("文件扩展名无效");
-        }
-
-        String fileExtension = filename.substring(lastDotIndex).toLowerCase();
-
-        List<String> allowedExtensions = Arrays.asList(".jpg", ".jpeg", ".png", ".gif", ".webp");
-        if (!allowedExtensions.contains(fileExtension)) {
-            throw new IllegalArgumentException("不支持的文件类型: " + fileExtension);
+        // 可选：添加文件大小限制（如 10MB）
+        long maxSize = 10 * 1024 * 1024; // 10MB
+        if (size > maxSize) {
+            throw new IllegalArgumentException("封面文件过大");
         }
 
         return fileExtension;

@@ -1,5 +1,8 @@
 package com.hiiro.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
@@ -8,6 +11,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
+import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.UserDTOMapper;
 import com.hiiro.mapper.UserMapper;
@@ -15,6 +19,14 @@ import com.hiiro.service.UserService;
 import com.hiiro.utils.MyJwtUtil;
 import com.hiiro.utils.RedisUtil;
 import jakarta.annotation.Resource;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.HighlightQuery;
+import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
+import org.springframework.data.elasticsearch.core.query.highlight.HighlightParameters;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -24,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -54,6 +67,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Resource
     private AuthenticationProvider authenticationProvider;
 
+    @Resource
+    ElasticsearchOperations esOperations;
+
     /**
      * 用户注册
      *
@@ -71,6 +87,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         // 尝试注册用户
         if (userMapper.insert(user) == 1) {
+            User dbUser = userMapper.selectById(user.getUid());
+            // 保存用户信息到Elasticsearch
+            esOperations.save(BeanUtil.copyProperties(dbUser, UserDocument.class));
             // 如果前端没有传nickname则使用默认格式,有则使用前端传来的nickname
             if (Objects.isNull(user.getNickname())) {
                 // 设置用户昵称,格式为"hiri_{用户uid}"
@@ -299,6 +318,85 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return ResultData.success(Collections.emptyList(), "无用户信息");
         }
         return ResultData.success(userList);
+    }
+
+    /**
+     * 搜索用户
+     *
+     * @param keyword  关键词
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
+     * @return ResultData对象
+     */
+    @Override
+    public ResultData<List<UserDocument>> searchUsers(String keyword, Integer pageNum, Integer pageSize) {
+        // 1. 构建 NativeQuery，多字段匹配
+        NativeQuery query = NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> b
+                        .should(s -> s.wildcard(w -> w  // 通配符查询
+                                .field("username")
+                                .value("*" + keyword + "*")
+                                .caseInsensitive(true)
+                                .boost(5.0f)))
+                ))
+                .withSort(s -> s.field(f -> f
+                        .field("_score")
+                        .order(SortOrder.Desc)
+                ))
+                .build();
+
+        // 2. 执行搜索
+        SearchHits<UserDocument> search = esOperations.search(query, UserDocument.class);
+        if (search.getTotalHits() == 0) {
+            return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST);
+        }
+        search.getSearchHits().forEach(hit -> {
+            System.out.println("用户" + hit.getContent().getUid() + " 得分：" + hit.getScore());
+        });
+        // 3. 按ES顺序收集结果（LinkedHashMap保持顺序）
+//        LinkedHashMap<Long, SearchHit<VideoDocument>> orderedHits = new LinkedHashMap<>();
+//        Map<Long, String> titleHighlightMap = new HashMap<>(); // 高亮存储
+//
+//        search.get().forEach(hit -> {
+//            Long vid = hit.getContent().getVid();
+//            orderedHits.put(vid, hit);
+//            // 处理高亮
+//            if (hit.getHighlightFields().containsKey("title")) {
+//                List<String> highlights = hit.getHighlightFields().get("title");
+//                if (!highlights.isEmpty()) {
+//                    titleHighlightMap.put(vid, highlights.get(0));
+//                }
+//            }
+//        });
+
+        // 4. 按ES顺序查询数据库
+//        List<Video> videos = new LambdaQueryChainWrapper<>(videoMapper)
+//                .in(Video::getVid, new ArrayList<>(orderedHits.keySet()))
+//                .list();
+
+        // 5. 按ES顺序重组结果
+//        List<Video> orderedVideos = new ArrayList<>();
+//        orderedHits.forEach((vid, hit) ->
+//                videos.stream()
+//                        .filter(v -> v.getVid().equals(vid))
+//                        .findFirst()
+//                        .ifPresent(video -> {
+//                            // 应用高亮标题
+//                            if (titleHighlightMap.containsKey(vid)) {
+//                                video.setTitle(titleHighlightMap.get(vid));
+//                            }
+//                            orderedVideos.add(video);
+//                        })
+//        );
+
+        // 6. 分页处理
+//        Page<Video> page = validateAndBuildPage(pageNum, pageSize);
+//        page.setRecords(orderedVideos);
+//        return processVideoPage(page);
+        List<UserDocument> userDocumentList = search.stream()
+                .map(SearchHit::getContent)
+                .toList();
+        return ResultData.success(userDocumentList);
     }
 
 }

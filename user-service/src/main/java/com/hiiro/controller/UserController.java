@@ -2,6 +2,7 @@ package com.hiiro.controller;
 
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
+import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -123,6 +125,22 @@ public class UserController {
     @PostMapping("/update")
     public ResultData<String> updateUserById(@RequestBody User user) {
         return userService.updateUserById(user);
+    }
+
+    /**
+     * 搜索用户
+     *
+     * @param keyword  关键词
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
+     * @return ResultData对象
+     */
+    @Operation(summary = "搜索用户")
+    @GetMapping("/search")
+    public ResultData<List<UserDocument>> searchUsers(@RequestParam("keyword") String keyword,
+                                                      @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                      @RequestParam(name = "pageSize", required = false) Integer pageSize) {
+        return userService.searchUsers(keyword, pageNum, pageSize);
     }
 
 }

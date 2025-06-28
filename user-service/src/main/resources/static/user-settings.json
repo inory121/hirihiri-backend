@@ -1,0 +1,47 @@
+{
+  "analysis": {
+    "analyzer": {
+      "char_analyzer": {
+        "type": "custom",
+        "char_filter": [
+          "han_filter"
+        ],
+        "tokenizer": "char_tokenizer"
+      },
+      "pinyin_analyzer": {
+        "type": "custom",
+        "tokenizer": "ik_max_word",
+        "filter": [
+          "pinyin_filter"
+        ]
+      }
+    },
+    "tokenizer": {
+      "char_tokenizer": {
+        "type": "edge_ngram",
+        "min_gram": 1,
+        "max_gram": 1,
+        "token_chars": [
+          "letter",
+          "digit",
+          "punctuation"
+        ]
+      }
+    },
+    "char_filter": {
+      "han_filter": {
+        "type": "pattern_replace",
+        "pattern": "([\\u4e00-\\u9fa5])",
+        "replacement": " $1 "
+      }
+    },
+    "filter": {
+      "pinyin_filter": {
+        "type": "pinyin",
+        "keep_first_letter": true,
+        "keep_full_pinyin": true,
+        "keep_original": true
+      }
+    }
+  }
+}

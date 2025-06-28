@@ -4,10 +4,9 @@ package com.hiiro.entity.document;
 import lombok.Data;
 import org.springframework.data.elasticsearch.annotations.*;
 
-@Document(indexName = "videos")// 自动创建索引时需要自定义分析器配置
+@Document(indexName = "video")// 自动创建索引时需要自定义分析器配置
 @Setting(settingPath = "/static/video-settings.json")// 自定义分析器设置
 @Data
-//@Builder
 public class VideoDocument {
 
     @Field(type = FieldType.Long)
