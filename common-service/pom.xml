@@ -24,6 +24,18 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!--spring-cloud-alibaba相关-->
+        <!-- Nacos 服务发现 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <!-- Nacos 配置管理 -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+
         <!--openfeign-->
         <dependency>
             <groupId>io.github.openfeign</groupId>

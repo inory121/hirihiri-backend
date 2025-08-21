@@ -4,14 +4,8 @@ server:
 spring:
   application:
     name: common-service
-  datasource:
-    type: com.alibaba.druid.pool.DruidDataSource
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/hirihiri?serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8&useSSL=false&allowMultiQueries=true&allowPublicKeyRetrieval=true
-    username: root
-    password: 12345
-  jackson:
-    date-format: yyyy-MM-dd HH:mm:ss
+  config:
+    import: "nacos:global-config.yml"
   cloud:
     openfeign:
       httpclient:
@@ -26,17 +20,3 @@ spring:
             logger-level: full
             connect-timeout: 2000
             read-timeout: 2000
-mybatis-plus:
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-feign:
-  client:
-    config:
-      default:  # 所有Feign客户端生效
-        loggerLevel: FULL
-logging:
-  level:
-    # 指定Feign客户端接口所在包
-    com.hiiro.apis: DEBUG
-    # 或全局开启（不推荐）
-#    root: DEBUG

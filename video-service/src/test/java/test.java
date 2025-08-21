@@ -149,4 +149,5 @@ public class test {
         List<VideoDocument> list = searchHits.stream().map(SearchHit::getContent).toList();
         System.out.println(list);
     }
+
 }

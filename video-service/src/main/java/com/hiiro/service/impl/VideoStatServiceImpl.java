@@ -47,7 +47,6 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
      * @param vid 视频ID
      * @return 插入记录数
      */
-    @Transactional
     @Override
     public int saveVideoStat(Long vid) {
         VideoStat videoStat = new VideoStat();

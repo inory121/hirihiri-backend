@@ -3,7 +3,7 @@
 ## 技术栈
 
 - 后端：
-    - SpringBoot3 + SpringSecurity +JWT+ SpringCloudAlibaba + MybatisPlus等
+    - SpringBoot3 + SpringSecurity + JWT + SpringCloudAlibaba + MybatisPlus + RocketMQ等
 - 数据库：
     - MySQL 8.0.40 + Redis + ElasticSearch
 - 开发环境：

@@ -1,6 +1,5 @@
 package com.hiiro.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -20,6 +19,8 @@ import com.hiiro.service.VideoStatService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.seata.spring.annotation.GlobalTransactional;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -64,6 +65,8 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
     private UserFeignApi userFeignApi;
     @Resource
     ElasticsearchOperations esOperations;
+    @Resource
+    private StreamBridge streamBridge;
 
     // 校验并构建分页对象
     private Page<Video> validateAndBuildPage(Integer pageNum, Integer pageSize) {
@@ -219,17 +222,20 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
      * @param video 视频对象
      * @return 保存视频是否成功
      */
-    @Transactional
+    @GlobalTransactional
     @Override
     public boolean saveVideo(String uid, Video video) {
         video.setUid(Long.valueOf(uid));
+        // 确保由数据库自增主键，便于 Seata 解析主键并注册分支(如果前端传了vid，这里必须设置为null)
+        video.setVid(null);
         if (videoMapper.insert(video) == 1 && videoStatService.saveVideoStat(video.getVid()) == 1) {
-            try {
-                esOperations.save(BeanUtil.copyProperties(video, VideoDocument.class));
-                return true;
-            } catch (Exception e) {
-                return false;
-            }
+            Map<String, Object> event = new HashMap<>();
+            event.put("type", "created");
+            event.put("vid", video.getVid());
+            event.put("uid", video.getUid());
+            event.put("timestamp", System.currentTimeMillis());
+            streamBridge.send("videoEvent-out-0", event);
+            return true;
         }
         return false;
     }
@@ -376,20 +382,22 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
                 .in(Video::getVid, new ArrayList<>(orderedHits.keySet()))
                 .list();
 
+        // 将查询结果转换为Map以便快速查找
+        Map<Long, Video> videoMap = videos.stream()
+                .collect(Collectors.toMap(Video::getVid, video -> video));
+
         // 5. 按ES顺序重组结果
         List<Video> orderedVideos = new ArrayList<>();
-        orderedHits.forEach((vid, hit) ->
-                videos.stream()
-                        .filter(v -> v.getVid().equals(vid))
-                        .findFirst()
-                        .ifPresent(video -> {
-                            // 应用高亮标题
-                            if (titleHighlightMap.containsKey(vid)) {
-                                video.setTitle(titleHighlightMap.get(vid));
-                            }
-                            orderedVideos.add(video);
-                        })
-        );
+        for (Long vid : orderedHits.keySet()) {
+            Video video = videoMap.get(vid);
+            if (video != null) {
+                // 应用高亮标题
+                if (titleHighlightMap.containsKey(vid)) {
+                    video.setTitle(titleHighlightMap.get(vid));
+                }
+                orderedVideos.add(video);
+            }
+        }
 
         // 6. 分页处理
         Page<Video> page = validateAndBuildPage(pageNum, pageSize);
