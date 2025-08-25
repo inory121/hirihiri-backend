@@ -4,7 +4,7 @@ spring:
   application:
     name: user-service
   config:
-    import: "nacos:global-config.yml"
+    import: "nacos:global-config.yml,nacos:database-config.yml"
   cloud:
     nacos:
       discovery:

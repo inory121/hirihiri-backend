@@ -27,11 +27,11 @@ public class RedisUtil {
         redisTemplate.opsForValue().set(key, value);
     }
 
-    public <T> Long setAllList(String key, List<T> list) {
+    public <T> void setAllList(String key, List<T> list) {
         List<String> dataList = list.stream()
                 .map(JSON::toJSONString)
                 .collect(Collectors.toList());
-        return redisTemplate.opsForList().rightPushAll(key, dataList);
+        redisTemplate.opsForList().rightPushAll(key, dataList);
     }
 
     /**

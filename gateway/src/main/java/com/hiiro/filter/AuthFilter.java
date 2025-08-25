@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Objects;
 
-// Gateway全局过滤器示例
+// Gateway全局过滤器
 @Component
 public class AuthFilter implements GlobalFilter, Ordered {
     @Resource

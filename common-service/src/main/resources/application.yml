@@ -5,7 +5,7 @@ spring:
   application:
     name: common-service
   config:
-    import: "nacos:global-config.yml"
+    import: "nacos:global-config.yml,nacos:database-config.yml"
   cloud:
     openfeign:
       httpclient:

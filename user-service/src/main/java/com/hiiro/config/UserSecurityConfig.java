@@ -36,9 +36,6 @@ public class UserSecurityConfig {
     @Resource
     private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
 
-    @Value("${internal.key}")
-    private String internalKey;
-
     /**
      * 密码BCrypt加密
      *

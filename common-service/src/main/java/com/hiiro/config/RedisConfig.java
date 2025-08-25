@@ -30,11 +30,11 @@ import java.time.format.DateTimeFormatter;
 @Configuration
 public class RedisConfig {
 
-    //过期时间-1天
-    private final Duration timeToLive = Duration.ofDays(-1);
+    //过期时间1天
+    private final Duration timeToLive = Duration.ofDays(1);
 
     /**
-     * RedisTemplate 先关配置
+     * RedisTemplate 相关配置
      */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
@@ -76,7 +76,7 @@ public class RedisConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        //默认1
+        //默认1天过期时间
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(timeToLive)
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))

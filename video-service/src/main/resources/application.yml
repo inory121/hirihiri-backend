@@ -8,7 +8,7 @@ spring:
       max-file-size: 20MB
       max-request-size: 20MB
   config:
-    import: "nacos:global-config.yml,nacos:video-service.yml"
+    import: "nacos:global-config.yml,nacos:video-service.yml,nacos:database-config.yml"
   cloud:
     nacos:
       discovery:
