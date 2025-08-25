@@ -10,6 +10,27 @@ spring:
   config:
     import: "nacos:global-config.yml,nacos:video-service.yml,nacos:database-config.yml"
   cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8080
+      eager: true
+      datasource:
+        flow:
+          nacos:
+            server-addr: localhost:8848
+            namespace: ""
+            group-id: SENTINEL_RULES
+            data-id: video-service-flow-rules
+            data-type: json
+            rule-type: flow
+        degrade:
+          nacos:
+            server-addr: localhost:8848
+            namespace: ""
+            group-id: SENTINEL_RULES
+            data-id: video-service-degrade-rules
+            data-type: json
+            rule-type: degrade
     nacos:
       discovery:
         server-addr: localhost:8848
@@ -29,7 +50,9 @@ spring:
         definition: videoEventConsumer
   elasticsearch:
     uris: http://localhost:9200
-
+feign:
+  sentinel:
+    enabled: true
 seata:
   application-id: seata-service-business
   registry:

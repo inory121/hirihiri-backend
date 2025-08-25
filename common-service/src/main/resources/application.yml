@@ -7,6 +7,10 @@ spring:
   config:
     import: "nacos:global-config.yml,nacos:database-config.yml"
   cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8080
+      eager: true
     openfeign:
       httpclient:
         enabled: true

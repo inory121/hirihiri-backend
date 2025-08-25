@@ -1,5 +1,6 @@
 package com.hiiro.apis;
 
+import com.hiiro.apis.fallback.UserFeignFallbackFactory;
 import com.hiiro.config.FeignConfig;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.dto.UserDTO;
@@ -13,7 +14,8 @@ import java.util.List;
 
 @FeignClient(
         name = "user-service",
-        configuration = FeignConfig.class
+        configuration = FeignConfig.class,
+        fallbackFactory = UserFeignFallbackFactory.class
 )
 public interface UserFeignApi {
 
