@@ -118,13 +118,11 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 
 		// 异步并行查询分类、统计、用户信息（缓存优先）
 		CompletableFuture<Map<Pair<String, String>, Category>> categoryFuture = CompletableFuture.supplyAsync(() ->
-				categoryCacheService.getBatch(mcScIdPairs)
-		, asyncExecutor)
+				categoryCacheService.getBatch(mcScIdPairs), asyncExecutor)
 				.completeOnTimeout(Collections.emptyMap(), 300, TimeUnit.MILLISECONDS);
 
 		CompletableFuture<Map<Long, VideoStat>> statFuture = CompletableFuture.supplyAsync(() ->
-				videoStatCacheService.getBatch(videoIds)
-		, asyncExecutor)
+				videoStatCacheService.getBatch(videoIds), asyncExecutor)
 				.completeOnTimeout(Collections.emptyMap(), 300, TimeUnit.MILLISECONDS);
 
 		// 在主线程捕获请求上下文
@@ -137,7 +135,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 				RequestContextHolder.resetRequestAttributes();
 			}
 		}, asyncExecutor)
-				.completeOnTimeout(Collections.emptyMap(), 300, TimeUnit.MILLISECONDS);
+                .completeOnTimeout(Collections.emptyMap(), 300, TimeUnit.MILLISECONDS);
 
 		CompletableFuture<ResultData<List<Map<String, Object>>>> resultFuture = CompletableFuture
 				.allOf(categoryFuture, statFuture, userFuture)
