@@ -8,7 +8,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class CategoryCacheService {
@@ -33,7 +32,7 @@ public class CategoryCacheService {
 			List<Category> fromDb = categoryService.list()
 					.stream()
 					.filter(c -> mcIds.contains(c.getMcId()) && scIds.contains(c.getScId()))
-					.collect(Collectors.toList());
+					.toList();
 			for (Category c : fromDb) {
 				Pair<String, String> k = Pair.of(c.getMcId(), c.getScId());
 				categoryCache.put(k, c);

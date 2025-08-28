@@ -4,7 +4,6 @@ import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.exp.UserException;
 import com.hiiro.filter.JwtAuthenticationTokenFilter;
 import jakarta.annotation.Resource;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
