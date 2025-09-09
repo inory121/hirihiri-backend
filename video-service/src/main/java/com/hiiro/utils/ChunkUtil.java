@@ -68,8 +68,8 @@ public class ChunkUtil {
             return Collections.emptyList();
         }
 
-        try {
-            return Files.list(chunksDir)
+        try (Stream<Path> paths = Files.list(chunksDir)) {
+            return paths
                     .filter(p -> p.getFileName().toString().endsWith(".part"))
                     .sorted((a, b) -> {
                         // 按数字顺序排序（与合并逻辑一致）
@@ -92,7 +92,6 @@ public class ChunkUtil {
      */
     public void cleanTempFiles(String uploadId) {
         Path uploadDir = Paths.get(tempDir, uploadId);
-//        Path uploadDir = Paths.get(tempDir, uploadId, "chunks");
         try (Stream<Path> stream = Files.walk(uploadDir)) {
             stream.sorted(Comparator.reverseOrder())
                     .forEach(path -> {

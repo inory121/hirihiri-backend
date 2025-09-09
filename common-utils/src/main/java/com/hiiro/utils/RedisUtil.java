@@ -2,17 +2,18 @@ package com.hiiro.utils;
 
 import com.alibaba.fastjson2.JSON;
 import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Component
 public class RedisUtil {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisUtil.class);
 
     // redis默认TTL设置为10天
     private static final long REDIS_DEFAULT_EXPIRE_TIME = 60 * 60 * 24 * 10;
@@ -21,96 +22,225 @@ public class RedisUtil {
     private RedisTemplate<String, Object> redisTemplate;
 
     /**
-     * 设置指定 key 的值。
+     * 设置键值对，如果键不存在才设置（分布式锁）
      */
-    public void set(String key, Object value) {
-        redisTemplate.opsForValue().set(key, value);
-    }
-
-    public <T> void setAllList(String key, List<T> list) {
-        List<String> dataList = list.stream()
-                .map(JSON::toJSONString)
-                .collect(Collectors.toList());
-        redisTemplate.opsForList().rightPushAll(key, dataList);
-    }
-
-    /**
-     * 获取指定 key 的值。
-     */
-    public Object get(String key) {
-        return redisTemplate.opsForValue().get(key);
-    }
-
-    public <T> T getObject(String key, Class<T> clazz) {
-        return JSON.parseObject((String) redisTemplate.opsForValue().get(key), clazz);
-    }
-
-    public <T> List<T> getList(String key, long index, Class<T> clazz) {
-        Object object = redisTemplate.opsForList().index(key, index);
-        if (Objects.nonNull(object)) {
-            return JSON.parseArray(object.toString(), clazz);
+    public boolean setIfAbsent(String key, Object value, long timeout, TimeUnit unit) {
+        try {
+            Boolean result = redisTemplate.opsForValue().setIfAbsent(key, value, timeout, unit);
+            return Boolean.TRUE.equals(result);
+        } catch (Exception e) {
+            log.error("Redis setIfAbsent操作失败，key: {}", key, e);
+            return false;
         }
-        return List.of();
     }
 
     /**
-     * 删除一个或多个key。
+     * 设置键值对并指定过期时间
      */
-    public Boolean delete(String... keys) {
+    public boolean setWithExpire(String key, Object value, long timeout, TimeUnit unit) {
+        try {
+            redisTemplate.opsForValue().set(key, value, timeout, unit);
+            return true;
+        } catch (Exception e) {
+            log.error("Redis set操作失败，key: {}", key, e);
+            return false;
+        }
+    }
+
+    /**
+     * 设置指定 key 的值
+     */
+    public boolean set(String key, Object value) {
+        try {
+            redisTemplate.opsForValue().set(key, value);
+            return true;
+        } catch (Exception e) {
+            log.error("Redis set操作失败，key: {}", key, e);
+            return false;
+        }
+    }
+
+    /**
+     * 批量设置键值对，并指定过期时间
+     */
+    public <T> boolean setList(String key, List<T> list) {
+        try {
+            for (T t : list) {
+                redisTemplate.opsForList().rightPushAll(key, t);
+            }
+            return true;
+        } catch (Exception e) {
+            log.error("Redis setList操作失败，key: {}", key, e);
+            return false;
+        }
+    }
+
+    /**
+     * 获取指定 key 的值，并处理异常
+     */
+    public Optional<Object> get(String key) {
+        try {
+            return Optional.ofNullable(redisTemplate.opsForValue().get(key));
+        } catch (Exception e) {
+            log.error("Redis get操作失败，key: {}", key, e);
+            return Optional.empty();
+        }
+    }
+
+    public <T> Optional<T> getObject(String key, Class<T> clazz) {
+        try {
+            return get(key).map(obj -> {
+                try {
+                    return JSON.parseObject(obj.toString(), clazz);
+                } catch (Exception e) {
+                    log.error("Redis getObject解析失败，key: {}，class: {}", key, clazz.getName(), e);
+                    return null;
+                }
+            });
+        } catch (Exception e) {
+            log.error("Redis getObject操作失败，key: {}，class: {}", key, clazz.getName(), e);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * 获取列表指定索引范围的元素，并处理异常
+     */
+    public <T> List<T> getList(String key, long index, Class<T> clazz) {
+        try {
+            // 获取列表长度
+            Long size = redisTemplate.opsForList().size(key);
+            if (size == null || size <= 0) {
+                return new ArrayList<>();
+            }
+
+            // 获取指定索引范围的元素
+            List<Object> objects;
+            if (index >= 0) {
+                // 获取单个元素
+                objects = Collections.singletonList(redisTemplate.opsForList().index(key, index));
+            } else {
+                // 获取所有元素 (index < 0)
+                objects = redisTemplate.opsForList().range(key, 0, -1);
+            }
+
+            if (objects == null || objects.isEmpty()) {
+                return new ArrayList<>();
+            }
+
+            // 将每个元素从JSON字符串解析为指定类型的对象
+            List<T> result = new ArrayList<>();
+            for (Object obj : objects) {
+                if (obj instanceof String) {
+                    T parsedObj = JSON.parseObject((String) obj, clazz);
+                    result.add(parsedObj);
+                } else if (obj != null) {
+                    // 如果对象不是字符串，先转换为JSON字符串再解析
+                    String jsonString = JSON.toJSONString(obj);
+                    T parsedObj = JSON.parseObject(jsonString, clazz);
+                    result.add(parsedObj);
+                }
+            }
+
+            return result;
+        } catch (Exception e) {
+            log.error("Redis getList操作失败，key: {}，index: {}，class: {}", key, index, clazz.getName(), e);
+            return new ArrayList<>();
+        }
+    }
+
+
+    /**
+     * 删除一个或多个key，并处理异常
+     */
+    public boolean delete(String... keys) {
         if (Objects.isNull(keys) || keys.length == 0) {
             return false;
         }
 
-        Long deletedKeysCount = redisTemplate.delete(Arrays.asList(keys));
-        return deletedKeysCount > 0;
+        try {
+            Long deletedKeysCount = redisTemplate.delete(Arrays.asList(keys));
+            return deletedKeysCount > 0;
+        } catch (Exception e) {
+            log.error("Redis delete操作失败，keys: {}", Arrays.toString(keys), e);
+            return false;
+        }
     }
 
     /**
-     * 设置 key 的值，并设置过期时间。
+     * 设置 key 的值，并设置过期时间，处理异常
      */
-    public void setWithExpire(String key, Object value, TimeUnit unit) {
-        redisTemplate.opsForValue().set(key, value, REDIS_DEFAULT_EXPIRE_TIME, unit);
+    public boolean setWithDefaultExpire(String key, Object value) {
+        try {
+            redisTemplate.opsForValue().set(key, value, REDIS_DEFAULT_EXPIRE_TIME, TimeUnit.SECONDS);
+            return true;
+        } catch (Exception e) {
+            log.error("Redis setWithExpire操作失败，key: {}", key, e);
+            return false;
+        }
     }
 
     /**
-     * 设置 key 的值，并设置过期时间。
+     * 检查给定 key 是否存在，并处理异常
      */
-    public void setObjectWithExpire(String key, Object value, TimeUnit unit) {
-        redisTemplate.opsForValue().set(key, JSON.toJSONString(value), REDIS_DEFAULT_EXPIRE_TIME, unit);
+    public boolean hasKey(String key) {
+        try {
+            return redisTemplate.hasKey(key);
+        } catch (Exception e) {
+            log.error("Redis hasKey操作失败，key: {}", key, e);
+            return false;
+        }
     }
 
     /**
-     * 检查给定 key 是否存在。
-     */
-    public Boolean hasKey(String key) {
-        return redisTemplate.hasKey(key);
-    }
-
-    /**
-     * 设置 key 的过期时间。
+     * 设置 key 的过期时间，并处理异常
      */
     public boolean setExpire(String key, long timeout, TimeUnit unit) {
-        return redisTemplate.expire(key, timeout, unit);
+        try {
+            return redisTemplate.expire(key, timeout, unit);
+        } catch (Exception e) {
+            log.error("Redis setExpire操作失败，key: {}", key, e);
+            return false;
+        }
     }
 
     /**
-     * 获取指定 key 的过期时间。
+     * 获取指定 key 的过期时间，并处理异常
      */
-    public Long getExpire(String key, TimeUnit unit) {
-        return redisTemplate.getExpire(key, unit);
+    public Optional<Long> getExpire(String key, TimeUnit unit) {
+        try {
+            Long expire = redisTemplate.getExpire(key, unit);
+            return Optional.of(expire);
+        } catch (Exception e) {
+            log.error("Redis getExpire操作失败，key: {}", key, e);
+            return Optional.empty();
+        }
     }
 
     /**
-     * 递增指定的 key。
+     * 递增指定的 key，并处理异常
      */
-    public Long increment(String key, long delta) {
-        return redisTemplate.opsForValue().increment(key, delta);
+    public Optional<Long> increment(String key, long delta) {
+        try {
+            Long result = redisTemplate.opsForValue().increment(key, delta);
+            return Optional.ofNullable(result);
+        } catch (Exception e) {
+            log.error("Redis increment操作失败，key: {}", key, e);
+            return Optional.empty();
+        }
     }
 
     /**
-     * 递减指定的 key。
+     * 递减指定的 key，并处理异常
      */
-    public Long decrement(String key, long delta) {
-        return redisTemplate.opsForValue().decrement(key, delta);
+    public Optional<Long> decrement(String key, long delta) {
+        try {
+            Long result = redisTemplate.opsForValue().decrement(key, delta);
+            return Optional.ofNullable(result);
+        } catch (Exception e) {
+            log.error("Redis decrement操作失败，key: {}", key, e);
+            return Optional.empty();
+        }
     }
+
 }

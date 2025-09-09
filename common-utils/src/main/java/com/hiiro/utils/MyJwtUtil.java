@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Component
 public class MyJwtUtil {
@@ -38,7 +37,7 @@ public class MyJwtUtil {
         byte[] enhancedSecretKey = sha256(secretKey);
 
         String token = JWTUtil.createToken(claims, enhancedSecretKey);
-        redisUtil.setWithExpire("token:user:" + claims.get("uid"), token, TimeUnit.SECONDS);
+        redisUtil.setWithDefaultExpire("token:user:" + claims.get("uid"), token);
         return token;
     }
 

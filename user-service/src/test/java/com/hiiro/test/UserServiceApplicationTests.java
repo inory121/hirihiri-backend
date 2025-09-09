@@ -25,6 +25,7 @@ import java.security.KeyPair;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @SpringBootTest(classes = UserServiceApplication.class)
 public class UserServiceApplicationTests {
@@ -54,8 +55,9 @@ public class UserServiceApplicationTests {
 //        System.out.println(redisUtil.getObject("user:2", User.class));
         String token="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiIyIiwicm9sZSI6InVzZXIiLCJleHAiOjE3Mzk3NzgwMDM5MzEsImp0aSI6IjA2ZTRmNzBlLWMzZjktNDIwYy04Y2RjLTFlOGViZGFkZGMzZiJ9.EOIKMbLGmdXgT5dHncthUw2XKK6FUXZXPtSYx1nSEqQ";
         if (jwtUtil.verifyJwtToken(token)) {
-            Object jti = jwtUtil.getClaimFromToken(token, "jti");
-            System.out.println(jti);
+            String jti = jwtUtil.getClaimFromToken(token, "jti");
+            Optional<Object> blacklistJti = redisUtil.get("blacklist:user:" + 2 + ":" + jti);
+            System.out.println(blacklistJti.orElse(null));
 //            System.out.println(redisUtil.get("jti" + jti));
         } else {
             throw new UserException(ResultCodeEnum.UNAUTHORIZED);
@@ -104,8 +106,8 @@ public class UserServiceApplicationTests {
 
     @Test
     public void test3() {
-        UserDTO redisUserDTO = redisUtil.getObject("user:" + 2, UserDTO.class);
-        System.out.println(redisUserDTO);
+        Optional<UserDTO> redisUserDTO = redisUtil.getObject("user:" + 2, UserDTO.class);
+        System.out.println(redisUserDTO.orElse(null));
     }
     @Test
     public void test4() {

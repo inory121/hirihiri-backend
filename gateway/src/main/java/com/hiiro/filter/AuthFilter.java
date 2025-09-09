@@ -12,7 +12,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.Objects;
+import java.util.Optional;
 
 // Gateway全局过滤器
 @Component
@@ -35,10 +35,10 @@ public class AuthFilter implements GlobalFilter, Ordered {
                     // 解析Token
                     String uid = jwtUtil.getClaimFromToken(token, "uid");
                     // 解析token，拿到jti
-                    Object jti = jwtUtil.getClaimFromToken(token, "jti");
+                    String jti = jwtUtil.getClaimFromToken(token, "jti");
                     //根据token的jti去redis判断是否在黑名单,如果是则不允许继续操作
-                    Object blacklistJti = redisUtil.get("blacklist:user:" + uid + ":" + jti);
-                    if (Objects.nonNull(blacklistJti)) {
+                    Optional<Object> blacklistJti = redisUtil.get("blacklist:user:" + uid + ":" + jti);
+                    if (blacklistJti.isPresent()) {
                         throw new RuntimeException("token无效,用户已登出！");
                     }
                     // 添加UID到请求头

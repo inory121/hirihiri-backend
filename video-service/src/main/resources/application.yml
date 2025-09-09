@@ -41,10 +41,11 @@ spring:
       bindings:
         videoEvent-out-0:
           destination: video-events
+          group: video-group
           content-type: application/json
         videoEventConsumer-in-0:
           destination: video-events
-          group: video-search-consumer
+          group: video-group
           content-type: application/json
       function:
         definition: videoEventConsumer

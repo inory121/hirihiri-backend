@@ -18,7 +18,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Objects;
+import java.util.Optional;
 
 @Component
 public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
@@ -37,22 +37,27 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             return;
         }
         //从redis中获取用户信息
-        User loginUser = redisUtil.getObject("user:" + uid, User.class);
+        Optional<User> loginUserOpt = redisUtil.getObject("user:" + uid, User.class);
 
         // 如果redis查不到代表用户没登陆过或者token已过期
-        if (Objects.isNull(loginUser)) {
-            throw new UserException(ResultCodeEnum.UNAUTHORIZED, "用户未登录或token已过期！");
-        }
-
-        // 创建 UserDetailsImpl 并设置到 Security 上下文中
-        UserDetailsImpl userDetails = new UserDetailsImpl(loginUser);
-        // 设置Spring Security上下文中的认证信息
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(loginUser, null, userDetails.getAuthorities());
+        UsernamePasswordAuthenticationToken authentication = getAuthenticationToken(loginUserOpt);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         //放行
         filterChain.doFilter(request, response);
 
+    }
+
+    private static UsernamePasswordAuthenticationToken getAuthenticationToken(Optional<User> loginUserOpt) {
+        if (loginUserOpt.isEmpty()) {
+            throw new UserException(ResultCodeEnum.UNAUTHORIZED, "用户未登录或token已过期！");
+        }
+
+        User loginUser = loginUserOpt.get();
+
+        // 创建 UserDetailsImpl 并设置到 Security 上下文中
+        UserDetailsImpl userDetails = new UserDetailsImpl(loginUser);
+        // 设置Spring Security上下文中的认证信息
+        return new UsernamePasswordAuthenticationToken(loginUser, null, userDetails.getAuthorities());
     }
 }

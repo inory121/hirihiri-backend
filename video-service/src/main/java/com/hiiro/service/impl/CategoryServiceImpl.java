@@ -1,7 +1,5 @@
 package com.hiiro.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hiiro.entity.Category;
 import com.hiiro.entity.ResultCodeEnum;
@@ -13,6 +11,7 @@ import com.hiiro.utils.RedisUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 
@@ -29,88 +28,120 @@ import java.util.*;
 public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
 
     @Resource
-    private CategoryMapper categoryMapper;
-
-    @Resource
     private RedisUtil redisUtil;
+
+    private static final String CACHE_KEY = "categoryList";
+
+    private static final List<String> MAIN_CATEGORY_ORDER = Arrays.asList(
+            "anime", "movie", "guochuang", "tv", "variety", "documentary",
+            "douga", "game", "kichiku", "music", "dance", "cinephile",
+            "ent", "knowledge", "tech", "information", "food", "life",
+            "car", "fashion", "sports", "animal"
+    );
 
     /**
      * 获取所有分类信息
+     *
      * @return 分类信息
      */
     @Override
     public ResultData<List<CategoryDTO>> getCategory() {
-        long start = System.currentTimeMillis();
-        List<CategoryDTO> categorys = redisUtil.getList("categoryList",0,CategoryDTO.class);
-        if (!categorys.isEmpty()) {
-            long end = System.currentTimeMillis();
-            log.info("获取分类信息耗时：{}ms", end - start);
-            return ResultData.success(categorys, "获取分区信息成功");
+        long startTime = System.currentTimeMillis();
+        // 1.优先从缓存获取
+        List<CategoryDTO> cachedList = redisUtil.getList(CACHE_KEY, -1, CategoryDTO.class);
+        if (!cachedList.isEmpty()) {
+            log.info("从缓存获取分类信息成功，耗时：{}ms", System.currentTimeMillis() - startTime);
+            return ResultData.success(cachedList, "获取分类信息成功");
         }
-        QueryWrapper<Category> wrapper = new QueryWrapper<>();
-        List<Category> list = categoryMapper.selectList(wrapper);
-        Map<String, CategoryDTO> categoryDTOMap = new HashMap<>();
-        List<CategoryDTO> sortedCategories = new ArrayList<>();
-        if (Objects.nonNull(list)) {
-            for (Category category : list) {
-                Integer cId = category.getCId();
-                String mcId = category.getMcId();
-                String scId = category.getScId();
-                String mcName = category.getMcName();
-                String scName = category.getScName();
-                String descr = category.getDescr();
-                String[] rcmTag = category.getRcmTag().split("\n");
-                List<String> rcmTags = Arrays.asList(rcmTag);
-
-                if (!categoryDTOMap.containsKey(mcId)) {
-                    CategoryDTO categoryDTO = new CategoryDTO();
-                    categoryDTO.setMcId(mcId);
-                    categoryDTO.setMcName(mcName);
-                    categoryDTO.setScList(new ArrayList<>());
-                    categoryDTOMap.put(mcId, categoryDTO);
-                }
-
-                HashMap<String, Object> scMap = new HashMap<>(Map.of(
-                        "cid", cId,
-                        "mcId", mcId,
-                        "mcName", mcName,
-                        "scId", scId,
-                        "scName", scName,
-                        "descr", descr,
-                        "rcmTag", rcmTags));
-                categoryDTOMap.get(mcId).getScList().add(scMap);
-            }
-            List<String> sortOrder = Arrays.asList("anime", "movie", "guochuang", "tv", "variety", "documentary",
-                    "douga", "game", "kichiku", "music", "dance", "cinephile", "ent", "knowledge", "tech",
-                    "information", "food", "life", "car", "fashion", "sports", "animal");
-
-            for (String mcId : sortOrder) {
-                if (categoryDTOMap.containsKey(mcId)) {
-                    sortedCategories.add(categoryDTOMap.get(mcId));
-                }
-            }
-            redisUtil.setAllList("categoryList", sortedCategories);
-        } else {
-            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR,"视频分类信息不存在!");
+        
+        // 2.缓存未命中，查询数据库
+        List<Category> dbList = this.list();
+        if (CollectionUtils.isEmpty(dbList)) {
+            log.warn("数据库分类信息为空");
+            return ResultData.fail(ResultCodeEnum.CATEGORY_NOT_EXIST, "视频分类信息不存在");
         }
-        long end = System.currentTimeMillis();
-        log.info("获取分类信息耗时：{}ms", end - start);
-        return ResultData.success(sortedCategories,"获取视频分区成功");
+        
+        // 3. 转换数据结构
+        Map<String, CategoryDTO> categoryMap = convertToCategoryMap(dbList);
+        // 4. 按预定顺序排序
+        List<CategoryDTO> sortedCategories = sortCategories(categoryMap);
+        // 5. 更新缓存
+        if (!redisUtil.setList(CACHE_KEY, sortedCategories)){
+            log.info("更新缓存失败");
+        }
+        log.info("分类信息查询+处理总耗时：{}ms", System.currentTimeMillis() - startTime);
+        return ResultData.success(sortedCategories, "获取视频分区成功");
+    }
+
+    /**
+     * 将数据库实体列表转换为按主分类分组的Map结构
+     */
+    private Map<String, CategoryDTO> convertToCategoryMap(List<Category> categories) {
+        Map<String, CategoryDTO> categoryMap = new HashMap<>();
+
+        for (Category category : categories) {
+            String mcId = category.getMcId();
+
+            // 初始化主分类DTO（如果不存在）
+            categoryMap.computeIfAbsent(mcId, k -> {
+                CategoryDTO dto = new CategoryDTO();
+                dto.setMcId(mcId);
+                dto.setMcName(category.getMcName());
+                dto.setScList(new ArrayList<>());
+                return dto;
+            });
+
+            // 添加子分类信息
+            categoryMap.get(mcId).getScList().add(createSubCategoryMap(category));
+        }
+
+        return categoryMap;
+    }
+
+    /**
+     * 创建子分类的Map结构
+     */
+    private Map<String, Object> createSubCategoryMap(Category category) {
+        return Map.of(
+                "cid", category.getCId(),
+                "mcId", category.getMcId(),
+                "mcName", category.getMcName(),
+                "scId", category.getScId(),
+                "scName", category.getScName(),
+                "descr", category.getDescr(),
+                "rcmTag", Arrays.asList(category.getRcmTag().split("\n"))
+        );
+    }
+
+    /**
+     * 按预定顺序对分类进行排序
+     */
+    private List<CategoryDTO> sortCategories(Map<String, CategoryDTO> categoryMap) {
+        List<CategoryDTO> sortedList = new ArrayList<>();
+
+        // 按预定义顺序添加主分类
+        for (String mcId : MAIN_CATEGORY_ORDER) {
+            if (categoryMap.containsKey(mcId)) {
+                sortedList.add(categoryMap.get(mcId));
+            }
+        }
+
+        return sortedList;
     }
 
     /**
      * 根据主分区id和子分区id获取分类信息
+     *
      * @param mcId 主分区id
      * @param scId 子分区id
      * @return Category对象
      */
     @Override
     public Category getCategoryById(String mcId, String scId) {
-        Category category = categoryMapper.selectOne(new LambdaQueryWrapper<Category>().eq(Category::getMcId, mcId).eq(Category::getScId, scId));
-        if(Objects.nonNull(category)){
-            return category;
-        }else {
-            return new Category();
-        }
+        return this.lambdaQuery()
+                .eq(Category::getMcId, mcId)
+                .eq(Category::getScId, scId)
+                .oneOpt()
+                .orElse(new Category());
     }
 }

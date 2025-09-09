@@ -2,6 +2,7 @@ package com.hiiro.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
@@ -18,6 +19,7 @@ import com.hiiro.service.UserService;
 import com.hiiro.utils.MyJwtUtil;
 import com.hiiro.utils.RedisUtil;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -30,7 +32,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -40,6 +41,7 @@ import java.util.concurrent.TimeUnit;
  * @author hiiro
  * @since 2025-01-29
  */
+@Slf4j
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
@@ -135,7 +137,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 创建默认的JWT令牌，其中包含用户的UID作为声明的一部分
         String token = jwtUtil.createDefaultJwtToken(new HashMap<>(Map.of("uid", uid)));
         // 登陆成功并成功更新登陆状态后将用户信息存入redis
-        redisUtil.setObjectWithExpire("user:" + uid, loginUser.getUser(), TimeUnit.SECONDS);
+        redisUtil.setWithDefaultExpire("user:" + uid, JSON.toJSONString(loginUser.getUser()));
         // 返回token和用户信息给前端
         return ResultData.success(
                 new HashMap<>(
@@ -219,7 +221,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             // 从redis中删除用户信息
             if (redisUtil.delete("user:" + uid, "token:user:" + uid)) {
                 // 将token加入黑名单
-                redisUtil.setWithExpire("blacklist:user:" + uid + ":" + jti, jti, TimeUnit.SECONDS);
+                redisUtil.setWithDefaultExpire("blacklist:user:" + uid + ":" + jti, jti);
                 return ResultData.success("用户登出成功");
             }
             return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户已登出");
@@ -235,10 +237,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public ResultData<UserDTO> getUserInfo(String uid) {
+        long startTime = System.currentTimeMillis();
         // 从redis中获取用户信息
-        UserDTO redisUserDTO = redisUtil.getObject("user:" + uid, UserDTO.class);
-        if (Objects.nonNull(redisUserDTO)) {
-            return ResultData.success(redisUserDTO, "获取用户信息成功");
+        Optional<UserDTO> redisUserDTO = redisUtil.getObject("user:" + uid, UserDTO.class);
+        if (redisUserDTO.isPresent()) {
+            log.info("从缓存获取用户信息成功，耗时：{}ms", System.currentTimeMillis() - startTime);
+            return ResultData.success(redisUserDTO.get(), "获取用户信息成功");
         } else {
             try {
                 Long userId = Long.valueOf(uid);

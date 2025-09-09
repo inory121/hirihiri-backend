@@ -2,8 +2,6 @@ package com.hiiro.utils;
 
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -106,12 +104,4 @@ public class FileValidationUtils {
         }
     }
 
-    /**
-     * 保留原方法：用于本地文件校验
-     */
-    public static void validateMagicNumber(File file, String fileExtension) throws IOException {
-        try (InputStream is = new FileInputStream(file)) {
-            validateMagicNumber(is, fileExtension);
-        }
-    }
 }
