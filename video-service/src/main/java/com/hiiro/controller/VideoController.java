@@ -3,14 +3,20 @@ package com.hiiro.controller;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
 import com.hiiro.service.VideoService;
+import com.hiiro.service.VideoStatService;
+import com.hiiro.service.impl.OnlineViewerService;
+import com.hiiro.utils.RedisUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -21,12 +27,22 @@ import java.util.Map;
  * @since 2025-02-11
  */
 @Tag(name = "视频接口")
+@Slf4j
 @RestController
 @RequestMapping("/api/video")
 public class VideoController {
 
     @Resource
     private VideoService videoService;
+
+    @Resource
+    private VideoStatService videoStatService;
+
+    @Resource
+    private RedisUtil redisUtil;
+
+    @Resource
+    private OnlineViewerService onlineViewerService;
 
     /**
      * 获取推荐视频
@@ -94,5 +110,92 @@ public class VideoController {
                                                               @RequestParam(name = "pageNum", required = false) Integer pageNum,
                                                               @RequestParam(name = "pageSize", required = false) Integer pageSize) {
         return videoService.searchVideos(keyword, pageNum, pageSize);
+    }
+
+    /**
+     * 上报视频播放量
+     *
+     * @param vid     视频ID
+     * @param request HTTP请求对象
+     * @return ResultData对象
+     */
+    @Operation(summary = "上报视频播放量")
+    @PostMapping("/play")
+    public ResultData<Boolean> reportPlay(@RequestParam("vid") Long vid,
+                                          HttpServletRequest request) {
+        // 获取用户标识: 优先使用uid(已登录),否则使用IP地址
+        String uid = request.getHeader("uid");
+        String identifier;
+        if (uid != null && !uid.isEmpty()) {
+            identifier = "user:" + uid;
+        } else {
+            identifier = "ip:" + getClientIp(request);
+        }
+
+        // Redis去重: 同一用户/IP 24小时内只计一次播放
+        String key = "play:" + vid + ":" + identifier;
+        boolean isNew = redisUtil.setIfAbsent(key, "1", 24, TimeUnit.HOURS);
+
+        if (isNew) {
+            videoStatService.incrementPlay(vid);
+        }
+
+        return ResultData.success(isNew, "播放量上报成功");
+    }
+
+    /**
+     * 在线观众心跳
+     *
+     * @param vid      视频ID
+     * @param viewerId 观众标识 (前端传入: uid 或 cookie UUID)
+     * @return 当前在线人数
+     */
+    @Operation(summary = "在线观众心跳")
+    @PostMapping("/heartbeat")
+    public ResultData<Long> heartbeat(@RequestParam("vid") Long vid, @RequestParam("viewerId") String viewerId) {
+        long onlineCount = onlineViewerService.heartbeat(vid, viewerId);
+        return ResultData.success(onlineCount, "心跳成功");
+    }
+
+    /**
+     * 按用户ID获取投稿视频
+     *
+     * @param uid      用户ID
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
+     * @return ResultData对象
+     */
+    @Operation(summary = "按用户ID获取投稿视频")
+    @GetMapping("/user/{uid}")
+    public ResultData<List<Map<String, Object>>> getVideosByUid(@PathVariable("uid") Long uid,
+                                                            @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                            @RequestParam(name = "pageSize", required = false) Integer pageSize) {
+        return videoService.getVideosByUid(uid, pageNum, pageSize);
+    }
+
+    /**
+     * 获取客户端真实IP
+     */
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("X-Real-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        // 多个代理时取第一个IP
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        // IPv6环回地址统一转为127.0.0.1
+        if ("0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) {
+            ip = "127.0.0.1";
+        }
+        // IPv4映射的IPv6地址(如 ::ffff:192.168.1.1)转为IPv4
+        if (ip != null && ip.startsWith("::ffff:")) {
+            ip = ip.substring(7);
+        }
+        return ip;
     }
 }

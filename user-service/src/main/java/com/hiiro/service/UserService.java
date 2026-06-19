@@ -85,20 +85,12 @@ public interface UserService extends IService<User> {
     ResultData<String> logout(String uid, String token);
 
     /**
-     * 获取用户信息
+     * 获取用户信息（String 版）
      *
      * @param uid 用户ID
      * @return ResultData对象
      */
     ResultData<UserDTO> getUserInfo(String uid);
-
-    /**
-     * 通过用户ID获取用户名
-     *
-     * @param uid 用户ID
-     * @return UserDTO对象
-     */
-    ResultData<UserDTO> getUserDTOByUid(Long uid);
 
     /**
      * 批量获取用户信息

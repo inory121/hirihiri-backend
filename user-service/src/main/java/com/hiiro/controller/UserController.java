@@ -1,5 +1,6 @@
 package com.hiiro.controller;
 
+import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
 import com.hiiro.entity.document.UserDocument;
@@ -72,7 +73,7 @@ public class UserController {
     }
 
     /**
-     * @param uid 用户id
+     * @param uid 用户id（从header获取）
      * @return ResultData对象
      */
     @Operation(summary = "获取单个用户信息")
@@ -85,7 +86,7 @@ public class UserController {
      * @param uids 用户id
      * @return List<UserDTO>
      */
-    @Operation(summary = "获取批量用户信息")
+    @Operation(summary = "批量获取用户信息")
     @PostMapping("/batch/info")
     @PreAuthorize("@accessControl.isInternalRequest() || hasAnyRole('ROLE_ADMIN','ROLE_SUPER_ADMIN')")
     public List<UserDTO> getBatchUserInfo(@RequestBody List<Long> uids) {
@@ -93,14 +94,17 @@ public class UserController {
     }
 
     /**
-     * @param uid 用户id
-     * @return UserDTO
+     * @param uid 用户ID
+     * @return ResultData对象
      */
     @Operation(summary = "获取用户DTO")
     @GetMapping("/info/{uid}")
-    @PreAuthorize("@accessControl.isInternalRequest() || hasAnyRole('ROLE_ADMIN','ROLE_SUPER_ADMIN')")
     public ResultData<UserDTO> getUserByUid(@PathVariable("uid") Long uid) {
-        return userService.getUserDTOByUid(uid);
+        UserDTO userDTO = userService.getUserByUid(uid);
+        if (userDTO != null) {
+            return ResultData.success(userDTO);
+        }
+        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
     }
 
     /**
@@ -122,6 +126,7 @@ public class UserController {
      */
     @Operation(summary = "更新用户信息")
     @PostMapping("/update")
+    @PreAuthorize("@accessControl.isInternalRequest() || hasRole('ROLE_SUPER_ADMIN')")
     public ResultData<String> updateUserById(@RequestBody User user) {
         return userService.updateUserById(user);
     }

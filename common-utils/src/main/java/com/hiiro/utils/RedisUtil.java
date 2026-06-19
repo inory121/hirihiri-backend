@@ -2,18 +2,16 @@ package com.hiiro.utils;
 
 import com.alibaba.fastjson2.JSON;
 import jakarta.annotation.Resource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Component
 public class RedisUtil {
-
-    private static final Logger log = LoggerFactory.getLogger(RedisUtil.class);
 
     // redis默认TTL设置为10天
     private static final long REDIS_DEFAULT_EXPIRE_TIME = 60 * 60 * 24 * 10;

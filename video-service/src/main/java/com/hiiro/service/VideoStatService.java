@@ -42,4 +42,11 @@ public interface VideoStatService extends IService<VideoStat> {
      * @return 增加结果
      */
     int incrementDanmaku(Long vid);
+    
+    /**
+     * 视频的播放量+1 (支持自动创建记录)
+     *
+     * @param vid 视频ID
+     */
+    void incrementPlay(Long vid);
 }

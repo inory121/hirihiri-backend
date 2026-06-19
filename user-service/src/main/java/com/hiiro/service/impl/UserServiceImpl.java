@@ -181,18 +181,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
-     * 通过用户ID获取用户信息
+     * 通过用户ID获取用户信息（统一走 Redis 缓存）
      *
      * @param uid 用户ID
-     * @return user User实体
+     * @return user UserDTO对象，查不到返回 null
      */
     @Override
     public UserDTO getUserByUid(Long uid) {
-        return userDTOMapper.selectOne(new LambdaQueryWrapper<UserDTO>().eq(UserDTO::getUid, uid));
+        if (uid == null) {
+            return null;
+        }
+        // 1. 先查缓存
+        Optional<UserDTO> redisUser = redisUtil.getObject("user:" + uid, UserDTO.class);
+        if (redisUser.isPresent()) {
+            return redisUser.get();
+        }
+        // 2. 缓存未命中 → 查数据库
+        UserDTO userDTO = userDTOMapper.selectOne(new LambdaQueryWrapper<UserDTO>().eq(UserDTO::getUid, uid));
+        // 3. 写回缓存（有值才写）
+        if (userDTO != null) {
+            redisUtil.setWithDefaultExpire("user:" + uid, JSON.toJSONString(userDTO));
+        }
+        return userDTO;
     }
 
     /**
-     * 更新用户信息
+     * 更新用户信息（字段白名单控制）
      *
      * @param user User实体
      * @return ResultData对象
@@ -200,7 +214,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional
     @Override
     public ResultData<String> updateUserById(User user) {
-        if (userMapper.updateById(user) == 1) {
+        if (user.getUid() == null) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "用户ID不能为空");
+        }
+
+        // 从Security上下文获取当前登录用户
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean hasLoginUser = auth != null && auth.getPrincipal() instanceof User;
+
+        User updateUser = new User();
+        updateUser.setUid(user.getUid());
+
+        if (!hasLoginUser) {
+            // 没有登录用户上下文 = 内部服务调用，信任全字段更新
+            updateUser = user;
+        } else {
+            User currentUser = (User) auth.getPrincipal();
+            Byte role = currentUser.getRole();
+
+            // 非超级管理员必须只能改自己的信息
+            if (role == null || role != 2) {
+                if (!user.getUid().equals(currentUser.getUid())) {
+                    return ResultData.fail(ResultCodeEnum.FORBIDDEN, "无权限修改其他用户信息");
+                }
+            }
+
+            if (role != null && role == 2) {
+                // 超级管理员：允许改公开信息 + 管理字段（但禁止改uid/role/password）
+                updateUser.setNickname(user.getNickname());
+                updateUser.setAvatar(user.getAvatar());
+                updateUser.setBackground(user.getBackground());
+                updateUser.setSex(user.getSex());
+                updateUser.setDescription(user.getDescription());
+                updateUser.setState(user.getState());
+                updateUser.setAuth(user.getAuth());
+                updateUser.setAuthMsg(user.getAuthMsg());
+                updateUser.setExp(user.getExp());
+                updateUser.setCoin(user.getCoin());
+                updateUser.setVip(user.getVip());
+            } else {
+                // 普通用户/管理员：只能改自己的公开信息
+                updateUser.setNickname(user.getNickname());
+                updateUser.setAvatar(user.getAvatar());
+                updateUser.setBackground(user.getBackground());
+                updateUser.setSex(user.getSex());
+                updateUser.setDescription(user.getDescription());
+            }
+        }
+
+        if (userMapper.updateById(updateUser) == 1) {
+            // 同步到ES
+            User dbUser = userMapper.selectById(user.getUid());
+            if (dbUser != null) {
+                esOperations.save(BeanUtil.copyProperties(dbUser, UserDocument.class));
+            }
             return ResultData.success("更新用户信息成功");
         } else {
             return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新用户信息失败");
@@ -208,70 +276,57 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
-     * 用户登出
+     * 用户登出（校验token与uid对应关系）
      *
-     * @param uid 用户ID
+     * @param uid   用户ID
+     * @param token token
      * @return ResultData对象
      */
     @Override
     public ResultData<String> logout(String uid, String token) {
-        if (!uid.isEmpty()) {
-            // 从jwt中获取jti
-            String jti = jwtUtil.getClaimFromToken(token, "jti");
-            // 从redis中删除用户信息
-            if (redisUtil.delete("user:" + uid, "token:user:" + uid)) {
-                // 将token加入黑名单
-                redisUtil.setWithDefaultExpire("blacklist:user:" + uid + ":" + jti, jti);
-                return ResultData.success("用户登出成功");
-            }
-            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户已登出");
+        if (uid == null || uid.isEmpty() || token == null || token.isEmpty()) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "参数不能为空");
         }
-        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在或用户未登录");
+
+        // 校验token有效性
+        if (!jwtUtil.verifyJwtToken(token)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "token无效");
+        }
+
+        // 校验token中uid与请求uid匹配
+        String tokenUid = jwtUtil.getClaimFromToken(token, "uid");
+        if (!uid.equals(tokenUid)) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "token与用户不匹配");
+        }
+
+        // 从jwt中获取jti
+        String jti = jwtUtil.getClaimFromToken(token, "jti");
+        // 从redis中删除用户信息
+        if (redisUtil.delete("user:" + uid, "token:user:" + uid)) {
+            // 将token加入黑名单
+            redisUtil.setWithDefaultExpire("blacklist:user:" + uid + ":" + jti, jti);
+            return ResultData.success("用户登出成功");
+        }
+        return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户已登出");
     }
 
     /**
-     * 获取用户信息
+     * 获取用户信息（String 版）
      *
      * @param uid 用户ID
      * @return ResultData对象
      */
     @Override
     public ResultData<UserDTO> getUserInfo(String uid) {
-        long startTime = System.currentTimeMillis();
-        // 从redis中获取用户信息
-        Optional<UserDTO> redisUserDTO = redisUtil.getObject("user:" + uid, UserDTO.class);
-        if (redisUserDTO.isPresent()) {
-            log.info("从缓存获取用户信息成功，耗时：{}ms", System.currentTimeMillis() - startTime);
-            return ResultData.success(redisUserDTO.get(), "获取用户信息成功");
-        } else {
-            try {
-                Long userId = Long.valueOf(uid);
-                // 从数据库中获取用户信息
-                UserDTO userDTO = getUserByUid(userId);
-                if (Objects.nonNull(userDTO)) {
-                    return ResultData.success(userDTO, "获取用户信息成功");
-                } else {
-                    return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
-                }
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("字符串无法转为 Long");
+        try {
+            UserDTO userDTO = getUserByUid(Long.valueOf(uid));
+            if (Objects.nonNull(userDTO)) {
+                return ResultData.success(userDTO, "获取用户信息成功");
             }
+            return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("uid 格式错误");
         }
-    }
-
-    /**
-     * 通过用户ID获取用户名
-     *
-     * @param uid 用户ID
-     * @return ResultData对象
-     */
-    @Override
-    public ResultData<UserDTO> getUserDTOByUid(Long uid) {
-        UserDTO user = userDTOMapper.selectOne(new LambdaQueryWrapper<UserDTO>().eq(UserDTO::getUid, uid));
-        if (Objects.nonNull(user)) {
-            return ResultData.success(user);
-        }
-        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
     }
 
     /**
@@ -348,9 +403,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (search.getTotalHits() == 0) {
             return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST);
         }
-        search.getSearchHits().forEach(hit -> {
-            System.out.println("用户" + hit.getContent().getUid() + " 得分：" + hit.getScore());
-        });
+        search.getSearchHits().forEach(hit ->
+                System.out.println("用户" + hit.getContent().getUid() + " 得分：" + hit.getScore()));
         // 3. 按ES顺序收集结果（LinkedHashMap保持顺序）
 //        LinkedHashMap<Long, SearchHit<VideoDocument>> orderedHits = new LinkedHashMap<>();
 //        Map<Long, String> titleHighlightMap = new HashMap<>(); // 高亮存储

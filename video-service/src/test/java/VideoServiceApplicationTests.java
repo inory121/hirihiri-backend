@@ -26,7 +26,7 @@ import java.util.Map;
 
 @Slf4j
 @SpringBootTest(classes = VideoServiceApplication.class)
-public class test {
+public class VideoServiceApplicationTests {
 
     @Resource
     RedisUtil redisUtil;
@@ -134,9 +134,8 @@ public class test {
         System.out.println("\n查询高亮结果：");
         for (SearchHit<VideoDocument> hit : searchHits) {
             System.out.println("vid = " + hit.getContent().getVid());
-            hit.getHighlightFields().forEach((field, fragments) -> {
-                System.out.println("字段: " + field + " 高亮文本: " + String.join(", ", fragments));
-            });
+            hit.getHighlightFields().forEach((field, fragments) -> 
+                    System.out.println("字段: " + field + " 高亮文本: " + String.join(", ", fragments)));
             System.out.println("----");
         }
     }

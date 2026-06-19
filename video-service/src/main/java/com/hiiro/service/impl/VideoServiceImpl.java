@@ -25,7 +25,6 @@ import io.micrometer.core.annotation.Timed;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.seata.spring.annotation.GlobalTransactional;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -225,7 +224,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	 * @param video 视频对象
 	 * @return 保存视频是否成功
 	 */
-	@GlobalTransactional
+	@Transactional
 	@Override
 	public boolean saveVideo(String uid, Video video) {
 		video.setUid(Long.valueOf(uid));
@@ -412,6 +411,36 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 		} finally {
 			long ms = (System.nanoTime() - t0) / 1_000_000;
 			log.info("searchVideos end2end={}ms", ms);
+		}
+	}
+
+	/**
+	 * 按用户ID获取投稿视频
+	 *
+	 * @param uid      用户ID
+	 * @param pageNum  分页页数
+	 * @param pageSize 分页大小
+	 * @return ResultData对象
+	 */
+	@Override
+	@Timed(value = "video.by_uid", percentiles = {0.9, 0.95, 0.99})
+	@SentinelResource(value = "video_by_uid", fallback = "listFallback", fallbackClass = SentinelFallbackHandlers.class, blockHandler = "listBlocked", blockHandlerClass = SentinelFallbackHandlers.class)
+	public ResultData<List<Map<String, Object>>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize) {
+		long t0 = System.nanoTime();
+		try {
+			if (uid == null || uid <= 0) {
+				return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "用户ID无效");
+			}
+			Page<Video> page = validateAndBuildPage(pageNum, pageSize);
+			IPage<Video> videoPage = new LambdaQueryChainWrapper<>(videoMapper)
+					.eq(Video::getUid, uid)
+					.eq(Video::getStatus, 1)
+					.orderByDesc(Video::getCreateDate)
+					.page(page);
+			return processVideoPage(videoPage);
+		} finally {
+			long ms = (System.nanoTime() - t0) / 1_000_000;
+			log.info("getVideosByUid uid={} end2end={}ms", uid, ms);
 		}
 	}
 

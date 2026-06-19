@@ -8,7 +8,6 @@ import com.hiiro.mapper.VideoStatMapper;
 import com.hiiro.service.VideoStatService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
@@ -60,12 +59,22 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
      * @param vid 视频ID
      * @return 更新记录数
      */
-    @Transactional
     @Override
     public int incrementReply(Long vid) {
-        return videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+        // 先尝试更新
+        int updated = videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
                 .eq(VideoStat::getVid, vid)
                 .setSql("reply = reply + 1"));
+        
+        // 如果更新失败(记录不存在),则创建新记录
+        if (updated == 0) {
+            saveVideoStat(vid);
+            // 再次更新
+            return videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+                    .eq(VideoStat::getVid, vid)
+                    .setSql("reply = reply + 1"));
+        }
+        return updated;
     }
 
     /**
@@ -74,11 +83,43 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
      * @param vid 视频ID
      * @return 更新记录数
      */
-    @Transactional
     @Override
     public int incrementDanmaku(Long vid) {
-        return videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+        // 先尝试更新
+        int updated = videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
                 .eq(VideoStat::getVid, vid)
                 .setSql("danmaku = danmaku + 1"));
+        
+        // 如果更新失败(记录不存在),则创建新记录
+        if (updated == 0) {
+            saveVideoStat(vid);
+            // 再次更新
+            return videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+                    .eq(VideoStat::getVid, vid)
+                    .setSql("danmaku = danmaku + 1"));
+        }
+        return updated;
+    }
+
+    /**
+     * 视频的播放量+1
+     *
+     * @param vid 视频ID
+     */
+    @Override
+    public void incrementPlay(Long vid) {
+        // 先尝试更新
+        int updated = videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+                .eq(VideoStat::getVid, vid)
+                .setSql("view = view + 1"));
+        
+        // 如果更新失败(记录不存在),则创建新记录
+        if (updated == 0) {
+            saveVideoStat(vid);
+            // 再次更新
+            videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+                    .eq(VideoStat::getVid, vid)
+                    .setSql("view = view + 1"));
+        }
     }
 }

@@ -81,4 +81,14 @@ public interface VideoService extends IService<Video> {
      * @return ResultData对象
      */
     ResultData<List<Map<String, Object>>> searchVideos(String keyword, Integer pageNum, Integer pageSize);
+
+    /**
+     * 按用户ID获取投稿视频
+     *
+     * @param uid      用户ID
+     * @param pageNum  分页页数
+     * @param pageSize 分页大小
+     * @return ResultData对象
+     */
+    ResultData<List<Map<String, Object>>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize);
 }

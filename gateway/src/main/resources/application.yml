@@ -20,8 +20,8 @@ spring:
         - id: user-route
           uri: lb://user-service
           predicates:
-            - Path=/api/user/**
+            - Path=/api/user/**,/api/follow/**
         - id: video-route
           uri: lb://video-service
           predicates:
-            - Path=/api/video/**,/api/category/**,/api/upload/**,/api/danmaku/**,/api/comment/**
+            - Path=/api/video/**,/api/category/**,/api/upload/**,/api/danmaku/**,/api/comment/**,/api/history/**

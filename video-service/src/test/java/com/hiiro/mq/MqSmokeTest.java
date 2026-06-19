@@ -18,7 +18,7 @@ public class MqSmokeTest {
 
     @Test
     @DisplayName("RocketMQ 简单测试")
-    void mqSendAndReceive() throws InterruptedException {
+    void mqSendAndReceive() {
         Map<String, Object> event = new HashMap<>();
         event.put("type", "created");
         event.put("vid", 0);
