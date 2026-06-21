@@ -4,6 +4,7 @@ import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
 import com.hiiro.entity.document.UserDocument;
+import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,13 +33,12 @@ public class UserController {
     private UserService userService;
 
     /**
-     * @param user User实体
-     * @return ResultData对象
+     * 用户注册
      */
     @Operation(summary = "注册")
     @PostMapping("/register")
-    public ResultData<String> register(@RequestBody User user) {
-        return userService.register(user);
+    public ResultData<String> register(@RequestBody RegisterDTO dto) {
+        return userService.register(dto);
     }
 
     /**
@@ -144,7 +144,10 @@ public class UserController {
     public ResultData<List<UserDocument>> searchUsers(@RequestParam("keyword") String keyword,
                                                       @RequestParam(name = "pageNum", required = false) Integer pageNum,
                                                       @RequestParam(name = "pageSize", required = false) Integer pageSize) {
-        return userService.searchUsers(keyword, pageNum, pageSize);
+        if (keyword == null || keyword.trim().isEmpty() || keyword.length() > 50) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "搜索词长度必须在1-50字符之间");
+        }
+        return userService.searchUsers(keyword.trim(), pageNum, pageSize);
     }
 
 }

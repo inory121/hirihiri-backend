@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
 import com.hiiro.entity.document.UserDocument;
+import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
 
 import java.util.HashMap;
@@ -22,10 +23,10 @@ public interface UserService extends IService<User> {
     /**
      * 用户注册
      *
-     * @param user User实体
+     * @param dto 注册请求 DTO（仅含 username/password/nickname）
      * @return ResultData对象
      */
-    ResultData<String> register(User user);
+    ResultData<String> register(RegisterDTO dto);
 
     /**
      * 用户登录

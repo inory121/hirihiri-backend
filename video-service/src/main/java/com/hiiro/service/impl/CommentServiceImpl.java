@@ -17,21 +17,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * <p>
- * 评论表 服务实现类
- * </p>
- *
- * @author hiiro
- * @since 2025-03-13
- */
 @Slf4j
 @Service
 public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> implements CommentService {
@@ -45,106 +34,76 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     @Resource
     UserFeignApi userFeignApi;
 
-    /**
-     * 获取评论列表
-     *
-     * @param vid 视频id
-     * @return 评论列表
-     */
     @Override
     public ResultData<List<CommentDTO>> getComments(Long vid) {
         long start = System.currentTimeMillis();
-        // 1. 查询所有未删除的评论
         List<Comment> commentList = commentMapper.selectList(new LambdaQueryWrapper<Comment>().eq(Comment::getVid, vid)
                 .eq(Comment::getIsDeleted, 0)
                 .orderByDesc(Comment::getCreateDate));
         if (commentList.isEmpty()) {
             return ResultData.fail(ResultCodeEnum.COMMENT_NOT_EXIST);
         }
-        // 2. 收集所有关联用户ID
         List<Long> allUserIds = commentList.stream()
-                .flatMap(comment ->
-                        Stream.of(comment.getUid(), comment.getToUserId()))
+                .flatMap(comment -> Stream.of(comment.getUid(), comment.getToUserId()))
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
-        // 3. 获取用户信息（调用用户服务）
         List<UserDTO> users = allUserIds.isEmpty()
                 ? Collections.emptyList()
                 : userFeignApi.getBatchUserInfo(allUserIds);
 
-        // 4. 构建评论树
-        List<CommentDTO> rootComments = buildCommentTree(commentList, 0, users);
-
-//        Map<Long, UserDTO> userMap = users.stream()
-//                .collect(Collectors.toMap(UserDTO::getUid, user -> user));
-//        // 4. 转换实体到 DTO 并填充用户信息
-//        List<CommentDTO> commentDTOList = commentList.parallelStream()
-//                .map(comment -> {
-//                    CommentDTO commentDTO = BeanUtil.copyProperties(comment, CommentDTO.class);
-//                    // 填充用户信息
-//                    Long uid = comment.getUid();
-//                    commentDTO.setUser(userMap.get(uid));
-//
-//                    if (comment.getToUserId() != null) {
-//                        Long toUserId = comment.getToUserId();
-//                        commentDTO.setToUser(userMap.get(toUserId));
-//                    }
-//
-//                    return commentDTO;
-//                })
-//                .toList();
+        List<CommentDTO> rootComments = buildCommentTreeIterative(commentList, users);
         long end = System.currentTimeMillis();
         log.info("获取评论列表耗时：{}ms ", end - start);
         return ResultData.success(rootComments, "获取评论信息成功");
     }
 
-    private List<CommentDTO> buildCommentTree(List<Comment> comments, Integer parentId, List<UserDTO> users) {
+    private List<CommentDTO> buildCommentTreeIterative(List<Comment> comments, List<UserDTO> users) {
         Map<Long, UserDTO> userMap = users.stream()
                 .collect(Collectors.toMap(UserDTO::getUid, user -> user));
 
-        return comments.stream()
-                .filter(comment -> comment.getParentId().equals(parentId))
-                .map(comment -> {
-                    CommentDTO dto = BeanUtil.copyProperties(comment, CommentDTO.class);
-                    // 填充用户信息
-                    dto.setUser(userMap.get(comment.getUid()));
-                    if (comment.getToUserId() != null) {
-                        dto.setToUser(userMap.get(comment.getToUserId()));
-                    }
-                    // 递归子评论
-                    dto.setReplies(buildCommentTree(comments, comment.getId(), users));
-                    return dto;
-                })
-                .collect(Collectors.toList());
+        Map<Integer, CommentDTO> dtoMap = new HashMap<>();
+        List<CommentDTO> roots = new ArrayList<>();
+
+        for (Comment c : comments) {
+            CommentDTO dto = BeanUtil.copyProperties(c, CommentDTO.class);
+            dto.setUser(userMap.get(c.getUid()));
+            if (c.getToUserId() != null) {
+                dto.setToUser(userMap.get(c.getToUserId()));
+            }
+            dto.setReplies(new ArrayList<>());
+            dtoMap.put(c.getId(), dto);
+        }
+
+        for (Comment c : comments) {
+            CommentDTO dto = dtoMap.get(c.getId());
+            Integer parentId = c.getParentId();
+            if (parentId == null || parentId == 0) {
+                roots.add(dto);
+            } else {
+                CommentDTO parent = dtoMap.get(parentId);
+                if (parent != null) {
+                    parent.getReplies().add(dto);
+                } else {
+                    roots.add(dto);
+                }
+            }
+        }
+        return roots;
     }
 
-    /**
-     * 发送评论
-     *
-     * @param comment 评论
-     * @return ResultData对象
-     */
     @Transactional
     @Override
     public ResultData<CommentDTO> sendComment(Comment comment) {
-//        Integer rootId = comment.getRootId();
-//        // 设置层级关系
-//        if (rootId == null || rootId == 0) {
-//            comment.setParentId(0);
-//            comment.setRootId(0);
-//        } else {
-//            // 子评论：查询父评论的 rootId
-//            Comment parentComment = commentMapper.selectById(rootId);
-//            if (parentComment == null) {
-//                return ResultData.fail(ResultCodeEnum.COMMENT_NOT_EXIST, "父评论不存在");
-//            }
-//            comment.setRootId(parentComment.getId()); // 子评论的 rootId = 父评论的 Id
-//        }
+        if (comment.getParentId() == null) {
+            comment.setParentId(0);
+        }
         if (commentMapper.insert(comment) == 1 && videoStatService.incrementReply(comment.getVid()) == 1) {
             UserDTO userDTO = userFeignApi.getUserByUid(comment.getUid()).getData();
-            UserDTO toUserDTO = userFeignApi.getUserByUid(comment.getToUserId()).getData();
-            if (Objects.nonNull(userDTO) && Objects.nonNull(toUserDTO)) {
+            UserDTO toUserDTO = comment.getToUserId() != null
+                    ? userFeignApi.getUserByUid(comment.getToUserId()).getData()
+                    : null;
+            if (Objects.nonNull(userDTO)) {
                 CommentDTO commentDTO = BeanUtil.copyProperties(comment, CommentDTO.class);
                 commentDTO.setUser(userDTO);
                 commentDTO.setToUser(toUserDTO);

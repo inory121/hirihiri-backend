@@ -1,11 +1,14 @@
 package com.hiiro.controller;
 
 import com.hiiro.entity.Danmaku;
+import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.service.DanmakuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,7 +49,13 @@ public class DanmakuController {
      */
     @PostMapping("/send")
     @Operation(summary = "添加弹幕")
-    public ResultData<Danmaku> sendDanmaku(@RequestBody Danmaku danmaku) {
+    public ResultData<Danmaku> sendDanmaku(@RequestBody Danmaku danmaku, HttpServletRequest request) {
+        String uid = request.getHeader("uid");
+        if (!StringUtils.hasText(uid)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
+        }
+        danmaku.setUid(Integer.valueOf(uid));
+        danmaku.setId(null);
         return danmakuService.sendDanmaku(danmaku);
     }
 }

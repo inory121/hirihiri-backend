@@ -17,6 +17,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * OSS文件工具类，提供分片上传相关操作
@@ -74,6 +76,7 @@ public class OSSUtil {
 
         try {
             CountDownLatch latch = new CountDownLatch(chunks.size());
+            AtomicReference<Exception> firstError = new AtomicReference<>();
 
             for (int i = 0; i < chunks.size(); i++) {
                 final int partNumber = i + 1;
@@ -84,14 +87,19 @@ public class OSSUtil {
                         // 复用原有上传逻辑
                         uploadPart(objectKey, chunk.getName(), uploadId, partNumber, is, chunk.length(), partETags);
                     } catch (Exception e) {
-                        throw new RuntimeException("分片上传失败: " + chunk.getName(), e);
+                        firstError.compareAndSet(null, e);
                     } finally {
                         latch.countDown();
                     }
                 });
             }
 
-            latch.await();
+            if (!latch.await(10, TimeUnit.MINUTES)) {
+                throw new RuntimeException("分片上传超时");
+            }
+            if (firstError.get() != null) {
+                throw new RuntimeException("分片上传失败", firstError.get());
+            }
             completeUpload(objectKey, uploadId, partETags);
             return ossConfig.getBucketUrl() + "/" + objectKey;
         } catch (InterruptedException e) {

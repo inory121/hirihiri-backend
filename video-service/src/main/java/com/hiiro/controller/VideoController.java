@@ -1,5 +1,6 @@
 package com.hiiro.controller;
 
+import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
 import com.hiiro.service.VideoService;
@@ -109,7 +110,10 @@ public class VideoController {
     public ResultData<List<Map<String, Object>>> searchVideos(@RequestParam("keyword") String keyword,
                                                               @RequestParam(name = "pageNum", required = false) Integer pageNum,
                                                               @RequestParam(name = "pageSize", required = false) Integer pageSize) {
-        return videoService.searchVideos(keyword, pageNum, pageSize);
+        if (keyword == null || keyword.trim().isEmpty() || keyword.length() > 100) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "搜索词长度必须在1-100字符之间");
+        }
+        return videoService.searchVideos(keyword.trim(), pageNum, pageSize);
     }
 
     /**

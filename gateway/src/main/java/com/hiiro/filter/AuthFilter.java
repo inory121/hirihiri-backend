@@ -7,58 +7,99 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
-// Gateway全局过滤器
 @Component
 public class AuthFilter implements GlobalFilter, Ordered {
+
     @Resource
     private MyJwtUtil jwtUtil;
 
     @Resource
     private RedisUtil redisUtil;
 
+    private static final List<String> PUBLIC_PATHS = Arrays.asList(
+            "/api/user/register",
+            "/api/user/login",
+            "/api/user/admin/login",
+            "/api/user/info/",
+            "/api/user/page",
+            "/api/user/search",
+            "/api/video/recommend",
+            "/api/video/all",
+            "/api/video/",
+            "/api/video/search",
+            "/api/video/user/",
+            "/api/comment/video/",
+            "/api/danmaku/video/",
+            "/api/category/get/all",
+            "/api/follow/status/",
+            "/api/follow/count/",
+            "/api/follow/followers/",
+            "/api/follow/followings/"
+    );
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        // 获取请求头中的Authorization
+        String path = exchange.getRequest().getURI().getPath();
+
+        ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate();
+        requestBuilder.headers(h -> {
+            h.remove("X-Internal-Request");
+            h.remove("X-Internal-Key");
+            h.remove("uid");
+            h.remove("token");
+        });
+
+        boolean isPublic = PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+
         String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
+        boolean hasToken = StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ");
 
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            try {
-                if (jwtUtil.verifyJwtToken(token)) {
-                    // 解析Token
-                    String uid = jwtUtil.getClaimFromToken(token, "uid");
-                    // 解析token，拿到jti
-                    String jti = jwtUtil.getClaimFromToken(token, "jti");
-                    //根据token的jti去redis判断是否在黑名单,如果是则不允许继续操作
-                    Optional<Object> blacklistJti = redisUtil.get("blacklist:user:" + uid + ":" + jti);
-                    if (blacklistJti.isPresent()) {
-                        throw new RuntimeException("token无效,用户已登出！");
-                    }
-                    // 添加UID到请求头
-                    exchange.getRequest().mutate()
-                            .header("uid", uid)
-                            .header("token", token)
-                            .build();
-                }
+        if (isPublic && !hasToken) {
+            return chain.filter(exchange.mutate().request(requestBuilder.build()).build());
+        }
 
-            } catch (Exception e) {
-                // Token解析失败处理
+        if (!hasToken) {
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
+
+        String token = authHeader.substring(7);
+        try {
+            if (!jwtUtil.verifyJwtToken(token)) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
+
+            String uid = jwtUtil.getClaimFromToken(token, "uid");
+            String jti = jwtUtil.getClaimFromToken(token, "jti");
+
+            Optional<Object> blacklistJti = redisUtil.get("blacklist:user:" + uid + ":" + jti);
+            if (blacklistJti.isPresent()) {
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
+
+            requestBuilder.header("uid", uid).header("token", token);
+            return chain.filter(exchange.mutate().request(requestBuilder.build()).build());
+
+        } catch (Exception e) {
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
         }
-        return chain.filter(exchange);
     }
 
     @Override
     public int getOrder() {
-        return -100; // 高优先级
+        return -100;
     }
 }

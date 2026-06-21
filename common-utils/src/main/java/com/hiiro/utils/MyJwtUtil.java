@@ -17,8 +17,7 @@ import java.util.UUID;
 @Component
 public class MyJwtUtil {
 
-    // jwt默认过期时间设置为当前时间加上10天
-    private static final long JWT_DEFAULT_EXPIRE_TIME = DateUtil.current() + 1000 * 60 * 60 * 24 * 10;
+    private static final long JWT_EXPIRE_SECONDS = 10 * 24 * 60 * 60L;
 
     @Value("${jwt.secret}")
     private String secretKey;
@@ -58,10 +57,11 @@ public class MyJwtUtil {
      * @return 生成的JWT令牌
      */
     public String createDefaultJwtToken(Map<String, Object> customClaims) {
+        long expSeconds = DateUtil.currentSeconds() + JWT_EXPIRE_SECONDS;
         Map<String, Object> defaultClaims = new HashMap<>(Map.of(
                 "jti", UUID.randomUUID().toString(),
                 "role", "user",
-                "exp", JWT_DEFAULT_EXPIRE_TIME
+                "exp", expSeconds
         ));
         if (Objects.nonNull(customClaims)) {
             defaultClaims.putAll(customClaims);
@@ -76,10 +76,15 @@ public class MyJwtUtil {
      * @return 验证结果
      */
     public boolean verifyJwtToken(String token) {
-        // 使用SHA-256算法增强密钥强度
         byte[] enhancedSecretKey = sha256(secretKey);
-
-        return JWTUtil.verify(token, enhancedSecretKey);
+        if (!JWTUtil.verify(token, enhancedSecretKey)) {
+            return false;
+        }
+        try {
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
@@ -91,10 +96,8 @@ public class MyJwtUtil {
     public Boolean isTokenExpired(String token) {
         Object claim = JWTUtil.parseToken(token).getPayload().getClaim("exp");
         if (claim instanceof NumberWithFormat) {
-            // 将 claim 转换为 long 类型
-            long expTime = ((NumberWithFormat) claim).longValue();
-            // 检查当前时间是否在过期时间之后
-            return DateUtil.date(expTime).before(DateUtil.date(DateUtil.current()));
+            long expSeconds = ((NumberWithFormat) claim).longValue();
+            return expSeconds < DateUtil.currentSeconds();
         } else {
             throw new IllegalArgumentException("解析token是否过期错误!");
         }

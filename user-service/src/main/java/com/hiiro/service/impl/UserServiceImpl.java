@@ -12,6 +12,7 @@ import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
 import com.hiiro.entity.document.UserDocument;
+import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.UserDTOMapper;
 import com.hiiro.mapper.UserMapper;
@@ -20,6 +21,8 @@ import com.hiiro.utils.MyJwtUtil;
 import com.hiiro.utils.RedisUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -69,33 +72,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     /**
      * 用户注册
      *
-     * @param user User实体
+     * @param dto RegisterDTO
      * @return ResultData对象
      */
     @Transactional
     @Override
-    public ResultData<String> register(User user) {
-        // 验证用户名是否已存在
-        if (Objects.nonNull(getUserByUsername(user.getUsername()))) {
+    public ResultData<String> register(RegisterDTO dto) {
+        // 验证用户名是否已存在（快速失败检查）
+        if (Objects.nonNull(getUserByUsername(dto.getUsername()))) {
             return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户已存在!");
         }
+
+        User user = new User();
+        user.setUsername(dto.getUsername());
         // 加密用户密码
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        // 尝试注册用户
-        if (userMapper.insert(user) == 1) {
-            User dbUser = userMapper.selectById(user.getUid());
-            // 保存用户信息到Elasticsearch
-            esOperations.save(BeanUtil.copyProperties(dbUser, UserDocument.class));
-            // 如果前端没有传nickname则使用默认格式,有则使用前端传来的nickname
-            if (Objects.isNull(user.getNickname())) {
-                // 设置用户昵称,格式为"hiri_{用户uid}"
-                user.setNickname("hiri_" + user.getUid());
-                // 更新用户昵称
-                updateUserById(user);
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setNickname(dto.getNickname());
+
+        try {
+            if (userMapper.insert(user) == 1) {
+                User dbUser = userMapper.selectById(user.getUid());
+                // 保存用户信息到Elasticsearch
+                esOperations.save(BeanUtil.copyProperties(dbUser, UserDocument.class));
+                // 如果前端没有传nickname则使用默认格式,有则使用前端传来的nickname
+                if (Objects.isNull(user.getNickname())) {
+                    // 设置用户昵称,格式为"hiri_{用户uid}"
+                    user.setNickname("hiri_" + user.getUid());
+                    // 更新用户昵称
+                    updateUserById(user);
+                }
+                return ResultData.success("注册成功，欢迎加入hirihiri！");
+            } else {
+                return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户注册失败");
             }
-            return ResultData.success("注册成功，欢迎加入hirihiri！");
-        } else {
-            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户注册失败");
+        } catch (DuplicateKeyException e) {
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "用户已存在!");
         }
     }
 
@@ -136,8 +147,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Long uid = loginUser.getUser().getUid();
         // 创建默认的JWT令牌，其中包含用户的UID作为声明的一部分
         String token = jwtUtil.createDefaultJwtToken(new HashMap<>(Map.of("uid", uid)));
-        // 登陆成功并成功更新登陆状态后将用户信息存入redis
-        redisUtil.setWithDefaultExpire("user:" + uid, JSON.toJSONString(loginUser.getUser()));
+        // 登陆成功后将用户DTO（不含密码等敏感信息）存入redis
+        redisUtil.setWithDefaultExpire("user:" + uid, JSON.toJSONString(getUserByUid(uid)));
         // 返回token和用户信息给前端
         return ResultData.success(
                 new HashMap<>(
@@ -227,8 +238,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         updateUser.setUid(user.getUid());
 
         if (!hasLoginUser) {
-            // 没有登录用户上下文 = 内部服务调用，信任全字段更新
-            updateUser = user;
+            // 内部服务调用：拷贝除 uid、password 外的所有字段
+            BeanUtil.copyProperties(user, updateUser, "uid", "password");
         } else {
             User currentUser = (User) auth.getPrincipal();
             Byte role = currentUser.getRole();
@@ -241,25 +252,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
 
             if (role != null && role == 2) {
-                // 超级管理员：允许改公开信息 + 管理字段（但禁止改uid/role/password）
-                updateUser.setNickname(user.getNickname());
-                updateUser.setAvatar(user.getAvatar());
-                updateUser.setBackground(user.getBackground());
-                updateUser.setSex(user.getSex());
-                updateUser.setDescription(user.getDescription());
-                updateUser.setState(user.getState());
-                updateUser.setAuth(user.getAuth());
-                updateUser.setAuthMsg(user.getAuthMsg());
-                updateUser.setExp(user.getExp());
-                updateUser.setCoin(user.getCoin());
-                updateUser.setVip(user.getVip());
+                // 超级管理员：允许改公开信息 + 管理字段（但禁止改 uid / role / password）
+                BeanUtil.copyProperties(user, updateUser, "uid", "password", "role");
             } else {
                 // 普通用户/管理员：只能改自己的公开信息
-                updateUser.setNickname(user.getNickname());
-                updateUser.setAvatar(user.getAvatar());
-                updateUser.setBackground(user.getBackground());
-                updateUser.setSex(user.getSex());
-                updateUser.setDescription(user.getDescription());
+                BeanUtil.copyProperties(user, updateUser,
+                        "uid", "password", "role", "state", "auth", "authMsg", "exp", "coin", "vip");
             }
         }
 
@@ -311,7 +309,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
-     * 获取用户信息（String 版）
+     * 获取用户信息
      *
      * @param uid 用户ID
      * @return ResultData对象
@@ -383,6 +381,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     @Override
     public ResultData<List<UserDocument>> searchUsers(String keyword, Integer pageNum, Integer pageSize) {
+        // 参数校验与默认值
+        if (pageNum == null || pageNum < 1) pageNum = 1;
+        else if (pageNum > 100) pageNum = 100;
+        if (pageSize == null || pageSize < 1) pageSize = 10;
+        else if (pageSize > 50) pageSize = 50;
+
         // 1. 构建 NativeQuery，多字段匹配
         NativeQuery query = NativeQuery.builder()
                 .withQuery(q -> q.bool(b -> b
@@ -396,6 +400,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .field("_score")
                         .order(SortOrder.Desc)
                 ))
+                .withPageable(PageRequest.of(pageNum - 1, pageSize))
                 .build();
 
         // 2. 执行搜索
@@ -403,48 +408,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (search.getTotalHits() == 0) {
             return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST);
         }
-        search.getSearchHits().forEach(hit ->
-                System.out.println("用户" + hit.getContent().getUid() + " 得分：" + hit.getScore()));
-        // 3. 按ES顺序收集结果（LinkedHashMap保持顺序）
-//        LinkedHashMap<Long, SearchHit<VideoDocument>> orderedHits = new LinkedHashMap<>();
-//        Map<Long, String> titleHighlightMap = new HashMap<>(); // 高亮存储
-//
-//        search.get().forEach(hit -> {
-//            Long vid = hit.getContent().getVid();
-//            orderedHits.put(vid, hit);
-//            // 处理高亮
-//            if (hit.getHighlightFields().containsKey("title")) {
-//                List<String> highlights = hit.getHighlightFields().get("title");
-//                if (!highlights.isEmpty()) {
-//                    titleHighlightMap.put(vid, highlights.get(0));
-//                }
-//            }
-//        });
 
-        // 4. 按ES顺序查询数据库
-//        List<Video> videos = new LambdaQueryChainWrapper<>(videoMapper)
-//                .in(Video::getVid, new ArrayList<>(orderedHits.keySet()))
-//                .list();
-
-        // 5. 按ES顺序重组结果
-//        List<Video> orderedVideos = new ArrayList<>();
-//        orderedHits.forEach((vid, hit) ->
-//                videos.stream()
-//                        .filter(v -> v.getVid().equals(vid))
-//                        .findFirst()
-//                        .ifPresent(video -> {
-//                            // 应用高亮标题
-//                            if (titleHighlightMap.containsKey(vid)) {
-//                                video.setTitle(titleHighlightMap.get(vid));
-//                            }
-//                            orderedVideos.add(video);
-//                        })
-//        );
-
-        // 6. 分页处理
-//        Page<Video> page = validateAndBuildPage(pageNum, pageSize);
-//        page.setRecords(orderedVideos);
-//        return processVideoPage(page);
         List<UserDocument> userDocumentList = search.stream()
                 .map(SearchHit::getContent)
                 .toList();

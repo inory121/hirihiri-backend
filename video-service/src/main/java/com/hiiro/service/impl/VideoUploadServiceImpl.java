@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
+import com.hiiro.entity.dto.VideoUploadDTO;
 import com.hiiro.service.VideoService;
 import com.hiiro.service.VideoUploadService;
 import com.hiiro.utils.ChunkUtil;
@@ -215,10 +216,19 @@ public class VideoUploadServiceImpl implements VideoUploadService {
             }
         }
 
-        // 3. 保存视频信息
-        Video video = JSON.parseObject(videoInfoJson, Video.class);
+        // 3. 保存视频信息 — 只接受白名单字段
+        VideoUploadDTO uploadDTO = JSON.parseObject(videoInfoJson, VideoUploadDTO.class);
+        Video video = new Video();
+        video.setTitle(uploadDTO.getTitle());
+        video.setDescr(uploadDTO.getDescription());
+        video.setMcId(uploadDTO.getMcId());
+        video.setScId(uploadDTO.getScId());
+        video.setTags(uploadDTO.getTags());
+        video.setType(uploadDTO.getType() != null ? uploadDTO.getType() : 1);
+        video.setAuth(uploadDTO.getAuth() != null ? uploadDTO.getAuth() : 0);
         video.setVideoUrl(videoUrl);
         video.setCoverUrl(coverUrl);
+
         if (!videoService.saveVideo(uid, video)) {
             ossUtil.deleteFile(videoPath);
             if (coverUrl != null && !coverUrl.isEmpty()) ossUtil.deleteFile(coverUrl);
