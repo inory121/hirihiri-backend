@@ -44,4 +44,21 @@ public interface UserBrowseHistoryService extends IService<UserBrowseHistory> {
      * @return 浏览历史(无则返回null)
      */
     UserBrowseHistory getHistoryByUidAndVid(Integer uid, Integer vid);
+
+    /**
+     * 删除指定视频的浏览历史
+     *
+     * @param uid 用户ID
+     * @param vid 视频ID
+     * @return 删除的记录数
+     */
+    int deleteHistory(Long uid, Integer vid);
+
+    /**
+     * 清空用户所有浏览历史
+     *
+     * @param uid 用户ID
+     * @return 删除的记录数
+     */
+    int clearAllHistory(Long uid);
 }

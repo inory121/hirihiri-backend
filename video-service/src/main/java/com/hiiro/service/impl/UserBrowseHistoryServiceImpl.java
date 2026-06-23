@@ -75,4 +75,25 @@ public class UserBrowseHistoryServiceImpl extends ServiceImpl<UserBrowseHistoryM
                 .eq(UserBrowseHistory::getVid, vid);
         return userBrowseHistoryMapper.selectOne(queryWrapper);
     }
+
+    /**
+     * 删除指定视频的浏览历史
+     */
+    @Override
+    public int deleteHistory(Long uid, Integer vid) {
+        LambdaQueryWrapper<UserBrowseHistory> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(UserBrowseHistory::getUid, uid)
+                .eq(UserBrowseHistory::getVid, vid);
+        return userBrowseHistoryMapper.delete(queryWrapper);
+    }
+
+    /**
+     * 清空用户所有浏览历史
+     */
+    @Override
+    public int clearAllHistory(Long uid) {
+        LambdaQueryWrapper<UserBrowseHistory> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(UserBrowseHistory::getUid, uid);
+        return userBrowseHistoryMapper.delete(queryWrapper);
+    }
 }

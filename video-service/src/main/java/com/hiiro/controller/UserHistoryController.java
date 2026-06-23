@@ -101,4 +101,40 @@ public class UserHistoryController {
         result.put("browseTime", null);
         return ResultData.success(result, "暂无浏览记录");
     }
+
+    /**
+     * 删除指定视频的浏览历史
+     * uid 从请求头获取，只能删除自己的历史记录
+     */
+    @DeleteMapping("/{vid}")
+    @Operation(summary = "删除单条历史记录", description = "删除指定视频的浏览历史")
+    public ResultData<String> deleteHistory(
+            @Parameter(description = "当前登录用户ID", required = true) @RequestHeader("uid") String uid,
+            @Parameter(description = "视频ID", required = true) @PathVariable("vid") Integer vid) {
+
+        if (!StringUtils.hasText(uid)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
+        }
+        int result = userBrowseHistoryService.deleteHistory(Long.valueOf(uid), vid);
+        if (result > 0) {
+            return ResultData.success("删除成功");
+        }
+        return ResultData.fail(ResultCodeEnum.NOT_FOUND, "记录不存在或已删除");
+    }
+
+    /**
+     * 清空所有浏览历史
+     * uid 从请求头获取，只能清空自己的历史记录
+     */
+    @DeleteMapping
+    @Operation(summary = "清空历史记录", description = "清空用户所有浏览历史")
+    public ResultData<String> clearAllHistory(
+            @Parameter(description = "当前登录用户ID", required = true) @RequestHeader("uid") String uid) {
+
+        if (!StringUtils.hasText(uid)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
+        }
+        userBrowseHistoryService.clearAllHistory(Long.valueOf(uid));
+        return ResultData.success("清空成功");
+    }
 }
