@@ -52,7 +52,7 @@ public interface VideoService extends IService<Video> {
      * @param vid 视频id
      * @return ResultData对象
      */
-    ResultData<HashMap<String, Object>> getVideoById(Integer vid);
+    ResultData<HashMap<String, Object>> getVideoById(Long vid);
 
     /**
      * 修改视频信息

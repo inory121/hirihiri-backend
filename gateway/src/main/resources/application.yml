@@ -52,3 +52,4 @@ security:
     - /api/follow/count/{uid:[0-9]+}
     - /api/follow/followers/{uid:[0-9]+}
     - /api/follow/followings/{uid:[0-9]+}
+    - /api/video/interaction/status/{vid:[0-9]+}

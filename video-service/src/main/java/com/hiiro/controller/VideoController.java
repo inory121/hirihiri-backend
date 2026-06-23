@@ -87,7 +87,7 @@ public class VideoController {
      */
     @Operation(summary = "获取视频详情")
     @GetMapping("/{vid}")
-    public ResultData<HashMap<String, Object>> getVideoById(@PathVariable("vid") Integer vid) {
+    public ResultData<HashMap<String, Object>> getVideoById(@PathVariable("vid") Long vid) {
         return videoService.getVideoById(vid);
     }
 

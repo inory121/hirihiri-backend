@@ -31,7 +31,7 @@ public class Comment implements Serializable {
      */
     @Schema(description = "评论主id",name = "id")
     @TableId(value = "id", type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
      * 评论的视频id
@@ -49,7 +49,7 @@ public class Comment implements Serializable {
      * 根节点评论的id,如果为0表示为根节点
      */
     @Schema(description ="根节点评论的id,如果为0表示为根节点",name = "rootId")
-    private Integer rootId;
+    private Long rootId;
 
     /**
      * 被回复的评论id，只有root_id为0时才允许为0，表示根评论

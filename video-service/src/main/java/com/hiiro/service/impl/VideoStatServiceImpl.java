@@ -19,7 +19,7 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
     private VideoStatMapper videoStatMapper;
 
     @Override
-    public VideoStat getVideoStatByVid(Integer vid) {
+    public VideoStat getVideoStatByVid(Long vid) {
         VideoStat videoStat = videoStatMapper.selectOne(new LambdaQueryWrapper<VideoStat>().eq(VideoStat::getVid, vid));
         if (Objects.nonNull(videoStat)) {
             return videoStat;
@@ -68,5 +68,41 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
     @Override
     public void incrementPlay(Long vid) {
         incrementBySql(vid, "view");
+    }
+
+    @Override
+    public void incrementLike(Long vid) {
+        incrementBySql(vid, "`like`");
+    }
+
+    @Override
+    public void decrementLike(Long vid) {
+        decrementBySql(vid, "`like`");
+    }
+
+    @Override
+    public void incrementCoin(Long vid) {
+        incrementBySql(vid, "coin");
+    }
+
+    @Override
+    public void decrementCoin(Long vid) {
+        decrementBySql(vid, "coin");
+    }
+
+    @Override
+    public void incrementFavorite(Long vid) {
+        incrementBySql(vid, "favorite");
+    }
+
+    @Override
+    public void decrementFavorite(Long vid) {
+        decrementBySql(vid, "favorite");
+    }
+
+    private int decrementBySql(Long vid, String column) {
+        return videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+                .eq(VideoStat::getVid, vid)
+                .setSql(column + " = " + column + " - 1"));
     }
 }

@@ -1,6 +1,7 @@
 package com.hiiro.config;
 
 import jakarta.annotation.PreDestroy;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -54,7 +55,7 @@ public class AsyncConfig {
             this.namePrefix = namePrefix;
         }
 
-        public Thread newThread(Runnable r) {
+        public Thread newThread(@NotNull Runnable r) {
             return new Thread(r, namePrefix + threadNumber.getAndIncrement());
         }
     }

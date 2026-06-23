@@ -32,7 +32,7 @@ public class UserBrowseHistory implements Serializable {
      */
     @TableId(value = "id", type = IdType.AUTO)
     @Schema(description = "主键ID", name = "id")
-    private Integer id;
+    private Long id;
 
     /**
      * 用户ID
@@ -44,7 +44,7 @@ public class UserBrowseHistory implements Serializable {
      * 视频ID
      */
     @Schema(description = "视频ID", name = "vid")
-    private Integer vid;
+    private Long vid;
 
     /**
      * 浏览时间

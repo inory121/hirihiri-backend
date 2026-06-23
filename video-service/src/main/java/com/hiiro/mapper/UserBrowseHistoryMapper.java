@@ -33,7 +33,7 @@ public interface UserBrowseHistoryMapper extends BaseMapper<UserBrowseHistory> {
             "WHERE h.uid = #{uid} AND v.status = 1 " +
             "ORDER BY h.browse_time DESC " +
             "LIMIT #{offset}, #{pageSize}")
-    List<HistoryVideoDTO> selectHistoryWithVideo(@Param("uid") Integer uid, 
+    List<HistoryVideoDTO> selectHistoryWithVideo(@Param("uid") Long uid, 
                                                   @Param("offset") Integer offset, 
                                                   @Param("pageSize") Integer pageSize);
 }

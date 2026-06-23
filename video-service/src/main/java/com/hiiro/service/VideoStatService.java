@@ -19,7 +19,7 @@ public interface VideoStatService extends IService<VideoStat> {
      * @param vid 视频ID
      * @return 视频统计数据
      */
-    VideoStat getVideoStatByVid(Integer vid);
+    VideoStat getVideoStatByVid(Long vid);
 
     /**
      * 保存视频统计数据
@@ -49,4 +49,46 @@ public interface VideoStatService extends IService<VideoStat> {
      * @param vid 视频ID
      */
     void incrementPlay(Long vid);
+
+    /**
+     * 视频的点赞数+1
+     *
+     * @param vid 视频ID
+     */
+    void incrementLike(Long vid);
+
+    /**
+     * 视频的点赞数-1
+     *
+     * @param vid 视频ID
+     */
+    void decrementLike(Long vid);
+
+    /**
+     * 视频的投币数+1
+     *
+     * @param vid 视频ID
+     */
+    void incrementCoin(Long vid);
+
+    /**
+     * 视频的投币数-1
+     *
+     * @param vid 视频ID
+     */
+    void decrementCoin(Long vid);
+
+    /**
+     * 视频的收藏数+1
+     *
+     * @param vid 视频ID
+     */
+    void incrementFavorite(Long vid);
+
+    /**
+     * 视频的收藏数-1
+     *
+     * @param vid 视频ID
+     */
+    void decrementFavorite(Long vid);
 }

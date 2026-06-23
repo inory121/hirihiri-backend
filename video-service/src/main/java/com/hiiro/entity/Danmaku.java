@@ -33,7 +33,7 @@ public class Danmaku implements Serializable {
      */
     @Schema(name = "id",description = "弹幕ID")
     @TableId(value = "id", type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
      * 视频ID

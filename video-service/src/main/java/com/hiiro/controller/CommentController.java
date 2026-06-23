@@ -4,6 +4,7 @@ import com.hiiro.entity.Comment;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.dto.CommentDTO;
+import com.hiiro.entity.dto.CommentPageDTO;
 import com.hiiro.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,15 +32,22 @@ public class CommentController {
     private CommentService commentService;
 
     /**
-     * 获取评论列表
+     * 获取评论列表（分页）
      *
-     * @param vid 视频id
-     * @return 评论列表
+     * @param vid      视频id
+     * @param sort     排序方式
+     * @param page     页码（从1开始，默认1）
+     * @param pageSize 每页大小（默认20）
+     * @return 分页评论列表
      */
     @GetMapping("/video/{vid}")
-    @Operation(summary = "获取评论列表")
-    public ResultData<List<CommentDTO>> getComments(@PathVariable("vid") Long vid) {
-        return commentService.getComments(vid);
+    @Operation(summary = "获取评论列表（分页）")
+    public ResultData<CommentPageDTO> getComments(
+            @PathVariable("vid") Long vid,
+            @RequestParam(name = "sort", defaultValue = "hot") String sort,
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+        return commentService.getComments(vid, sort, page, pageSize);
     }
 
     /**

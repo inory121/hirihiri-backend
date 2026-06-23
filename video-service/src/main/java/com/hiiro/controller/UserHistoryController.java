@@ -42,7 +42,7 @@ public class UserHistoryController {
     @Operation(summary = "记录浏览历史", description = "记录或更新用户的视频浏览历史")
     public ResultData<String> recordHistory(
             @Parameter(description = "当前登录用户ID", required = true) @RequestHeader("uid") String uid,
-            @Parameter(description = "视频ID", required = true) @RequestParam("vid") Integer vid,
+            @Parameter(description = "视频ID", required = true) @RequestParam("vid") Long vid,
             @Parameter(description = "播放进度(秒)") @RequestParam(value = "progress", defaultValue = "0") Integer progress) {
 
         if (!StringUtils.hasText(uid)) {
@@ -69,7 +69,7 @@ public class UserHistoryController {
         if (!StringUtils.hasText(uid)) {
             return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
         }
-        List<HistoryVideoDTO> historyList = userBrowseHistoryService.getHistoryPageList(Integer.valueOf(uid), pageNum, pageSize);
+        List<HistoryVideoDTO> historyList = userBrowseHistoryService.getHistoryPageList(Long.valueOf(uid), pageNum, pageSize);
         return ResultData.success(historyList, "获取成功");
     }
 
@@ -81,12 +81,12 @@ public class UserHistoryController {
     @Operation(summary = "获取播放进度", description = "获取用户在指定视频上的播放进度")
     public ResultData<Map<String, Object>> getProgress(
             @Parameter(description = "当前登录用户ID", required = true) @RequestHeader("uid") String uid,
-            @Parameter(description = "视频ID", required = true) @RequestParam("vid") Integer vid) {
+            @Parameter(description = "视频ID", required = true) @RequestParam("vid") Long vid) {
 
         if (!StringUtils.hasText(uid)) {
             return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
         }
-        UserBrowseHistory history = userBrowseHistoryService.getHistoryByUidAndVid(Integer.valueOf(uid), vid);
+        UserBrowseHistory history = userBrowseHistoryService.getHistoryByUidAndVid(Long.valueOf(uid), vid);
         Map<String, Object> result = new HashMap<>();
 
         if (history != null) {
@@ -110,7 +110,7 @@ public class UserHistoryController {
     @Operation(summary = "删除单条历史记录", description = "删除指定视频的浏览历史")
     public ResultData<String> deleteHistory(
             @Parameter(description = "当前登录用户ID", required = true) @RequestHeader("uid") String uid,
-            @Parameter(description = "视频ID", required = true) @PathVariable("vid") Integer vid) {
+            @Parameter(description = "视频ID", required = true) @PathVariable("vid") Long vid) {
 
         if (!StringUtils.hasText(uid)) {
             return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");

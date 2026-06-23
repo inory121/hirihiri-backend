@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.Comment;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.dto.CommentDTO;
+import com.hiiro.entity.dto.CommentPageDTO;
 
 import java.util.List;
 
@@ -18,12 +19,15 @@ import java.util.List;
 public interface CommentService extends IService<Comment> {
 
     /**
-     * 获取评论列表
+     * 获取评论列表（分页）
      *
-     * @param vid 视频id
-     * @return 评论列表
+     * @param vid      视频id
+     * @param sort     排序方式：hot-最热（根评论点赞数降序），new-最新（创建时间降序）
+     * @param page     页码（从1开始）
+     * @param pageSize 每页大小
+     * @return 分页评论列表
      */
-    ResultData<List<CommentDTO>> getComments(Long vid);
+    ResultData<CommentPageDTO> getComments(Long vid, String sort, int page, int pageSize);
 
     /**
      * 发送评论

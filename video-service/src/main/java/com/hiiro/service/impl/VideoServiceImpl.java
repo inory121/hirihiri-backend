@@ -249,7 +249,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	 * @return ResultData对象
 	 */
 	@Override
-	public ResultData<HashMap<String, Object>> getVideoById(Integer vid) {
+	public ResultData<HashMap<String, Object>> getVideoById(Long vid) {
 		Video video = videoMapper.selectOne(new LambdaQueryWrapper<Video>().eq(Video::getVid, vid));
 		if (Objects.nonNull(video)) {
 			VideoStat videoStat = videoStatService.getVideoStatByVid(vid);

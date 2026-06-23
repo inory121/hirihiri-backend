@@ -24,7 +24,7 @@ public interface UserBrowseHistoryService extends IService<UserBrowseHistory> {
      * @param progress 播放进度(秒)
      * @return 保存结果
      */
-    int saveOrUpdateHistory(Long uid, Integer vid, Integer progress);
+    int saveOrUpdateHistory(Long uid, Long vid, Integer progress);
 
     /**
      * 分页获取用户浏览历史列表(包含视频信息)
@@ -34,7 +34,7 @@ public interface UserBrowseHistoryService extends IService<UserBrowseHistory> {
      * @param pageSize 每页大小
      * @return 历史记录列表
      */
-    List<HistoryVideoDTO> getHistoryPageList(Integer uid, Integer pageNum, Integer pageSize);
+    List<HistoryVideoDTO> getHistoryPageList(Long uid, Integer pageNum, Integer pageSize);
 
     /**
      * 获取用户指定视频的浏览进度
@@ -43,7 +43,7 @@ public interface UserBrowseHistoryService extends IService<UserBrowseHistory> {
      * @param vid 视频ID
      * @return 浏览历史(无则返回null)
      */
-    UserBrowseHistory getHistoryByUidAndVid(Integer uid, Integer vid);
+    UserBrowseHistory getHistoryByUidAndVid(Long uid, Long vid);
 
     /**
      * 删除指定视频的浏览历史
@@ -52,7 +52,7 @@ public interface UserBrowseHistoryService extends IService<UserBrowseHistory> {
      * @param vid 视频ID
      * @return 删除的记录数
      */
-    int deleteHistory(Long uid, Integer vid);
+    int deleteHistory(Long uid, Long vid);
 
     /**
      * 清空用户所有浏览历史

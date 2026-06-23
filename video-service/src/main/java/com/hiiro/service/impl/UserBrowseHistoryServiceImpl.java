@@ -34,7 +34,7 @@ public class UserBrowseHistoryServiceImpl extends ServiceImpl<UserBrowseHistoryM
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public int saveOrUpdateHistory(Long uid, Integer vid, Integer progress) {
+    public int saveOrUpdateHistory(Long uid, Long vid, Integer progress) {
         LambdaQueryWrapper<UserBrowseHistory> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(UserBrowseHistory::getUid, uid)
                 .eq(UserBrowseHistory::getVid, vid);
@@ -60,7 +60,7 @@ public class UserBrowseHistoryServiceImpl extends ServiceImpl<UserBrowseHistoryM
      * 分页获取用户浏览历史列表(包含视频信息)
      */
     @Override
-    public List<HistoryVideoDTO> getHistoryPageList(Integer uid, Integer pageNum, Integer pageSize) {
+    public List<HistoryVideoDTO> getHistoryPageList(Long uid, Integer pageNum, Integer pageSize) {
         int offset = (pageNum - 1) * pageSize;
         return userBrowseHistoryMapper.selectHistoryWithVideo(uid, offset, pageSize);
     }
@@ -69,7 +69,7 @@ public class UserBrowseHistoryServiceImpl extends ServiceImpl<UserBrowseHistoryM
      * 获取用户指定视频的浏览进度
      */
     @Override
-    public UserBrowseHistory getHistoryByUidAndVid(Integer uid, Integer vid) {
+    public UserBrowseHistory getHistoryByUidAndVid(Long uid, Long vid) {
         LambdaQueryWrapper<UserBrowseHistory> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(UserBrowseHistory::getUid, uid)
                 .eq(UserBrowseHistory::getVid, vid);
@@ -80,7 +80,7 @@ public class UserBrowseHistoryServiceImpl extends ServiceImpl<UserBrowseHistoryM
      * 删除指定视频的浏览历史
      */
     @Override
-    public int deleteHistory(Long uid, Integer vid) {
+    public int deleteHistory(Long uid, Long vid) {
         LambdaQueryWrapper<UserBrowseHistory> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(UserBrowseHistory::getUid, uid)
                 .eq(UserBrowseHistory::getVid, vid);

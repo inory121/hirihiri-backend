@@ -23,7 +23,7 @@ public class CommentDTO implements Serializable {
      */
     @Schema(description = "评论主id", name = "id")
     @TableId(value = "id", type = IdType.AUTO)
-    private Integer id;
+    private Long id;
 
     /**
      * 评论的视频id
@@ -47,7 +47,7 @@ public class CommentDTO implements Serializable {
      * 被回复的评论id，只有root_id为0时才允许为0，表示根评论
      */
     @Schema(description = "被回复的评论id，只有root_id为0时才允许为0，表示根评论", name = "parentId")
-    private Integer parentId;
+    private Long parentId;
 
     /**
      * 回复目标用户id

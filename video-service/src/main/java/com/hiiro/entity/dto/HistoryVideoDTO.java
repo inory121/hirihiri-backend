@@ -26,13 +26,13 @@ public class HistoryVideoDTO implements Serializable {
      * 浏览历史ID
      */
     @Schema(description = "浏览历史ID", name = "id")
-    private Integer id;
+    private Long id;
 
     /**
      * 视频ID
      */
     @Schema(description = "视频ID", name = "vid")
-    private Integer vid;
+    private Long vid;
 
     /**
      * 浏览时间
@@ -68,7 +68,7 @@ public class HistoryVideoDTO implements Serializable {
      * 视频作者ID
      */
     @Schema(description = "视频作者ID", name = "authorUid")
-    private Integer authorUid;
+    private Long authorUid;
 
     /**
      * 视频作者用户名
