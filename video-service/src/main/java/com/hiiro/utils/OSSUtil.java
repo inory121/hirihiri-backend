@@ -106,8 +106,38 @@ public class OSSUtil {
             Thread.currentThread().interrupt();
             throw new RuntimeException("分片上传被中断", e);
         } finally {
-//            chunks.forEach(File::delete); // 清理分片文件
+            cleanupChunks(chunks); // 清理分片文件
         }
+    }
+
+    /**
+     * 清理分片文件
+     *
+     * @param chunks 分片文件列表
+     */
+    private void cleanupChunks(List<File> chunks) {
+        if (chunks == null || chunks.isEmpty()) return;
+
+        int deletedCount = 0;
+        int failedCount = 0;
+
+        for (File chunk : chunks) {
+            if (chunk.exists()) {
+                try {
+                    if (chunk.delete()) {
+                        deletedCount++;
+                    } else {
+                        failedCount++;
+                        log.warn("分片文件删除失败: {}", chunk.getAbsolutePath());
+                    }
+                } catch (Exception e) {
+                    failedCount++;
+                    log.error("分片文件清理异常: {}", chunk.getAbsolutePath(), e);
+                }
+            }
+        }
+
+        log.info("分片文件清理完成: 成功 {} 个, 失败 {} 个", deletedCount, failedCount);
     }
 
     /**
@@ -131,9 +161,9 @@ public class OSSUtil {
             request.setInputStream(inputStream);
 
             UploadPartResult result = ossClient.uploadPart(request);
-            synchronized (partETags) {
-                partETags.add(result.getPartETag());
-            }
+//            synchronized (partETags) {
+            partETags.add(result.getPartETag());
+//            }
             log.info("分片 {} 上传成功 (大小: {} MB)", chunkName, partSize / 1024 / 1024);
         } catch (Exception e) {
             throw new RuntimeException("分片上传失败: " + chunkName, e);

@@ -8,6 +8,8 @@ import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 @Tag(name = "视频上传接口")
 @RestController
 @RequestMapping("/api/video/upload")
@@ -62,11 +64,11 @@ public class VideoUploadController {
     @Operation(summary = "完成分片上传")
     @PostMapping("/complete")
     public ResultData<String> completeUpload(
-            @RequestPart("uploadId") String uploadId,
-            @RequestPart("fileName") String fileName,
+            @RequestParam("uploadId") String uploadId,
+            @RequestParam("fileName") String fileName,
             @RequestHeader("uid") String uid,
             @RequestPart("coverFile") MultipartFile coverFile,
-            @RequestPart("videoInfo") String videoInfoJson) {
+            @RequestParam("videoInfo") String videoInfoJson) {
 
         return videoUploadService.completeUpload(uploadId, fileName, uid, coverFile, videoInfoJson);
     }
@@ -79,8 +81,14 @@ public class VideoUploadController {
      */
     @Operation(summary = "取消上传")
     @PostMapping("/cancel")
-    public ResultData<String> cancelUpload(@RequestPart("uploadId") String uploadId) {
+    public ResultData<String> cancelUpload(@RequestParam("uploadId") String uploadId) {
         return videoUploadService.cancelUpload(uploadId);
+    }
+
+    @Operation(summary = "获取上传状态（断点续传）")
+    @GetMapping("/status")
+    public ResultData<Map<String, Object>> getUploadStatus(@RequestParam("uploadId") String uploadId) {
+        return videoUploadService.getUploadStatus(uploadId);
     }
 
 }

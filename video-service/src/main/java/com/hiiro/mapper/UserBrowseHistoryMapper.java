@@ -26,7 +26,7 @@ public interface UserBrowseHistoryMapper extends BaseMapper<UserBrowseHistory> {
     @Select("SELECT " +
             "h.id, h.vid, h.browse_time, h.progress, " +
             "v.title, v.cover_url, v.duration, v.uid as author_uid, " +
-            "u.nickname as author_nickname " +
+            "u.username as author_username " +
             "FROM user_browse_history h " +
             "LEFT JOIN video v ON h.vid = v.vid " +
             "LEFT JOIN user u ON v.uid = u.uid " +

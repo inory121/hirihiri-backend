@@ -1,5 +1,7 @@
 package com.hiiro.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
 import com.alibaba.fastjson2.JSON;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
@@ -20,6 +22,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -94,7 +97,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         }
 
         // 提取扩展名
-        String fileExtension = "";
+        String fileExtension;
         int lastDotIndex = originalFilename.lastIndexOf(".");
         if (lastDotIndex > 0 && lastDotIndex < originalFilename.length() - 1) {
             fileExtension = originalFilename.substring(lastDotIndex);
@@ -219,11 +222,7 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         // 3. 保存视频信息 — 只接受白名单字段
         VideoUploadDTO uploadDTO = JSON.parseObject(videoInfoJson, VideoUploadDTO.class);
         Video video = new Video();
-        video.setTitle(uploadDTO.getTitle());
-        video.setDescr(uploadDTO.getDescription());
-        video.setMcId(uploadDTO.getMcId());
-        video.setScId(uploadDTO.getScId());
-        video.setTags(uploadDTO.getTags());
+        BeanUtil.copyProperties(uploadDTO, video, CopyOptions.create().setIgnoreNullValue(true));
         video.setType(uploadDTO.getType() != null ? uploadDTO.getType() : 1);
         video.setAuth(uploadDTO.getAuth() != null ? uploadDTO.getAuth() : 0);
         video.setVideoUrl(videoUrl);
@@ -250,5 +249,11 @@ public class VideoUploadServiceImpl implements VideoUploadService {
     public ResultData<String> cancelUpload(String uploadId) {
         chunkUtil.cleanTempFiles(uploadId);
         return ResultData.success("操作成功");
+    }
+
+    @Override
+    public ResultData<Map<String, Object>> getUploadStatus(String uploadId) {
+        Map<String, Object> status = chunkUtil.getUploadStatus(uploadId);
+        return ResultData.success(status);
     }
 }

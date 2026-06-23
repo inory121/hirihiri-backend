@@ -230,7 +230,6 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 		video.setUid(Long.valueOf(uid));
 		video.setVid(null);
 		video.setStatus((byte) 0);
-		video.setDuration(null);
 		if (videoMapper.insert(video) == 1 && videoStatService.saveVideoStat(video.getVid()) == 1) {
 			Map<String, Object> event = new HashMap<>();
 			event.put("type", "created");

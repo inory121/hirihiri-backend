@@ -54,7 +54,7 @@ public class DanmakuController {
         if (!StringUtils.hasText(uid)) {
             return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
         }
-        danmaku.setUid(Integer.valueOf(uid));
+        danmaku.setUid(Long.valueOf(uid));
         danmaku.setId(null);
         return danmakuService.sendDanmaku(danmaku);
     }

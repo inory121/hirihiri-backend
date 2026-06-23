@@ -45,7 +45,7 @@ public class Danmaku implements Serializable {
      * 用户ID
      */
     @Schema(name = "uid",description = "用户ID")
-    private Integer uid;
+    private Long uid;
 
     /**
      * 弹幕内容

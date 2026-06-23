@@ -24,7 +24,7 @@ public interface UserBrowseHistoryService extends IService<UserBrowseHistory> {
      * @param progress 播放进度(秒)
      * @return 保存结果
      */
-    int saveOrUpdateHistory(Integer uid, Integer vid, Integer progress);
+    int saveOrUpdateHistory(Long uid, Integer vid, Integer progress);
 
     /**
      * 分页获取用户浏览历史列表(包含视频信息)

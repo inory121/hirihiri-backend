@@ -43,4 +43,12 @@ public interface VideoUploadService {
      * @return ResultData对象
      */
     ResultData<String> cancelUpload(String uploadId);
+
+    /**
+     * 获取上传状态（用于断点续传）
+     *
+     * @param uploadId 上传ID
+     * @return ResultData对象，包含已上传分片列表、文件名、总分片数
+     */
+    ResultData<java.util.Map<String, Object>> getUploadStatus(String uploadId);
 }

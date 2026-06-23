@@ -71,8 +71,8 @@ public class HistoryVideoDTO implements Serializable {
     private Integer authorUid;
 
     /**
-     * 视频作者昵称
+     * 视频作者用户名
      */
-    @Schema(description = "视频作者昵称", name = "authorNickname")
-    private String authorNickname;
+    @Schema(description = "视频作者用户名", name = "authorUsername")
+    private String authorUsername;
 }

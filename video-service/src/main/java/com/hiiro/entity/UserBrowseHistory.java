@@ -38,7 +38,7 @@ public class UserBrowseHistory implements Serializable {
      * 用户ID
      */
     @Schema(description = "用户ID", name = "uid")
-    private Integer uid;
+    private Long uid;
 
     /**
      * 视频ID

@@ -34,7 +34,7 @@ public class UserBrowseHistoryServiceImpl extends ServiceImpl<UserBrowseHistoryM
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public int saveOrUpdateHistory(Integer uid, Integer vid, Integer progress) {
+    public int saveOrUpdateHistory(Long uid, Integer vid, Integer progress) {
         LambdaQueryWrapper<UserBrowseHistory> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(UserBrowseHistory::getUid, uid)
                 .eq(UserBrowseHistory::getVid, vid);

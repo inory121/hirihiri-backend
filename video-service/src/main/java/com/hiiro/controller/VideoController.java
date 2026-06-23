@@ -1,8 +1,10 @@
 package com.hiiro.controller;
 
+import com.hiiro.apis.UserFeignApi;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.Video;
+import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.service.VideoService;
 import com.hiiro.service.VideoStatService;
 import com.hiiro.service.impl.OnlineViewerService;
@@ -12,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -44,6 +47,9 @@ public class VideoController {
 
     @Resource
     private OnlineViewerService onlineViewerService;
+
+    @Resource
+    private UserFeignApi userFeignApi;
 
     /**
      * 获取推荐视频
@@ -86,14 +92,38 @@ public class VideoController {
     }
 
     /**
-     * 逻辑删除视频
+     * 更新视频状态（删除/审核等）
+     * 仅视频作者或管理员可操作
      *
      * @param video 视频对象
+     * @param request HTTP请求对象
      * @return ResultData对象
      */
-    @Operation(summary = "逻辑删除视频")
+    @Operation(summary = "更新视频状态")
     @PostMapping("/update/status")
-    public ResultData<Video> updateVideoStatus(@RequestBody Video video) {
+    public ResultData<Video> updateVideoStatus(@RequestBody Video video, HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "请先登录");
+        }
+        Long currentUid = Long.valueOf(uidStr);
+
+        Video existingVideo = videoService.getById(video.getVid());
+        if (existingVideo == null) {
+            return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST, "视频不存在");
+        }
+
+        if (!existingVideo.getUid().equals(currentUid)) {
+            ResultData<UserDTO> userResult = userFeignApi.getUserByUid(currentUid);
+            if (userResult == null || userResult.getData() == null) {
+                return ResultData.fail(ResultCodeEnum.FORBIDDEN, "无权限操作此视频");
+            }
+            Byte role = userResult.getData().getRole();
+            if (role == null || (role != 1 && role != 2)) {
+                return ResultData.fail(ResultCodeEnum.FORBIDDEN, "无权限操作此视频");
+            }
+        }
+
         return videoService.updateVideoStatus(video.getVid(), video.getStatus());
     }
 

@@ -5,7 +5,8 @@ import lombok.Data;
 @Data
 public class VideoUploadDTO {
     private String title;
-    private String description;
+    private String descr;
+    private Double duration;
     private String mcId;
     private String scId;
     private String tags;

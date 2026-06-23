@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -86,12 +84,77 @@ public class ChunkUtil {
     }
 
     /**
+     * 获取上传状态（用于断点续传）
+     * 返回 Map: uploadedChunks(已上传分片序号列表), fileName(文件名), totalChunks(总分片数), exists(uploadId是否有效)
+     *
+     * @param uploadId 上传ID
+     * @return 上传状态信息
+     */
+    public Map<String, Object> getUploadStatus(String uploadId) {
+        Map<String, Object> status = new HashMap<>();
+        Path uploadDir = Paths.get(tempDir, uploadId);
+
+        if (!Files.exists(uploadDir)) {
+            status.put("exists", false);
+            status.put("uploadedChunks", List.of());
+            status.put("fileName", "");
+            status.put("totalChunks", 0);
+            return status;
+        }
+
+        status.put("exists", true);
+
+        // 读取 metadata.info
+        Path metaFile = uploadDir.resolve("metadata.info");
+        if (Files.exists(metaFile)) {
+            try {
+                String meta = Files.readString(metaFile);
+                int colonIdx = meta.lastIndexOf(':');
+                if (colonIdx > 0) {
+                    status.put("fileName", meta.substring(0, colonIdx));
+                    status.put("totalChunks", Integer.parseInt(meta.substring(colonIdx + 1)));
+                }
+            } catch (IOException e) {
+                log.warn("读取 metadata 失败: {}", uploadId, e);
+                status.put("fileName", "");
+                status.put("totalChunks", 0);
+            }
+        } else {
+            status.put("fileName", "");
+            status.put("totalChunks", 0);
+        }
+
+        // 读取已上传分片
+        Path chunksDir = uploadDir.resolve("chunks");
+        if (!Files.exists(chunksDir)) {
+            status.put("uploadedChunks", java.util.List.of());
+            return status;
+        }
+        try (Stream<Path> paths = Files.list(chunksDir)) {
+            java.util.List<Integer> uploaded = paths
+                    .filter(p -> p.getFileName().toString().endsWith(".part"))
+                    .map(p -> Integer.parseInt(p.getFileName().toString().replace(".part", "")))
+                    .sorted()
+                    .collect(Collectors.toList());
+            status.put("uploadedChunks", uploaded);
+        } catch (IOException e) {
+            log.error("读取分片列表失败", e);
+            status.put("uploadedChunks", java.util.List.of());
+        }
+        return status;
+    }
+
+    /**
      * 清理临时文件
      *
      * @param uploadId 上传ID
      */
     public void cleanTempFiles(String uploadId) {
         Path uploadDir = Paths.get(tempDir, uploadId);
+        if (!Files.exists(uploadDir)) {
+            log.info("临时目录不存在，无需清理: {}", uploadDir);
+            return;
+        }
         try (Stream<Path> stream = Files.walk(uploadDir)) {
             stream.sorted(Comparator.reverseOrder())
                     .forEach(path -> {
@@ -107,4 +170,3 @@ public class ChunkUtil {
     }
 
 }
-
