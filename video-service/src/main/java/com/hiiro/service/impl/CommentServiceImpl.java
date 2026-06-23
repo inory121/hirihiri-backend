@@ -59,7 +59,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         Page<Comment> pagedRoots = commentMapper.selectPage(rootPage, rootWrapper);
 
         List<Comment> rootComments = pagedRoots.getRecords();
-        long total = pagedRoots.getTotal();
+        long rootTotal = pagedRoots.getTotal(); // 根评论总数，用于分页
+
+        // 查询该视频全部评论总数（根评论+回复），用于前端展示
+        long total = commentMapper.selectCount(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getVid, vid)
+                .eq(Comment::getIsDeleted, 0));
 
         if (rootComments.isEmpty()) {
             CommentPageDTO emptyResult = new CommentPageDTO(new ArrayList<>(), total, page, pageSize, false);
@@ -119,7 +124,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             root.setReplies(allReplies);
         });
 
-        boolean hasMore = page * pageSize < total;
+        boolean hasMore = (long) page * pageSize < rootTotal;
         CommentPageDTO result = new CommentPageDTO(rootDTOs, total, page, pageSize, hasMore);
 
         long end = System.currentTimeMillis();
