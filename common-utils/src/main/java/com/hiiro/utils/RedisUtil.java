@@ -241,4 +241,30 @@ public class RedisUtil {
         }
     }
 
+    /**
+     * ZSet：给指定 member 的分数增加 delta
+     */
+    public Optional<Double> zIncrementScore(String key, Object value, double delta) {
+        try {
+            Double result = redisTemplate.opsForZSet().incrementScore(key, value, delta);
+            return Optional.ofNullable(result);
+        } catch (Exception e) {
+            log.error("Redis zIncrementScore操作失败，key: {}", key, e);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * ZSet：按分数从高到低取前 N 个（带分数）
+     */
+    public Set<Object> zReverseRange(String key, long start, long end) {
+        try {
+            Set<Object> result = redisTemplate.opsForZSet().reverseRange(key, start, end);
+            return result != null ? result : Collections.emptySet();
+        } catch (Exception e) {
+            log.error("Redis zReverseRange操作失败，key: {}", key, e);
+            return Collections.emptySet();
+        }
+    }
+
 }

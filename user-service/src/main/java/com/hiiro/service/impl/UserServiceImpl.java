@@ -14,6 +14,8 @@ import com.hiiro.entity.User;
 import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
+import com.hiiro.entity.Follow;
+import com.hiiro.mapper.FollowMapper;
 import com.hiiro.mapper.UserDTOMapper;
 import com.hiiro.mapper.UserMapper;
 import com.hiiro.service.UserService;
@@ -59,6 +61,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     private UserDTOMapper userDTOMapper;
+
+    @Resource
+    private FollowMapper followMapper;
 
     @Resource
     private PasswordEncoder passwordEncoder;
@@ -380,17 +385,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return ResultData对象
      */
     @Override
-    public ResultData<List<UserDocument>> searchUsers(String keyword, Integer pageNum, Integer pageSize) {
-        // 参数校验与默认值
+    public ResultData<List<Map<String, Object>>> searchUsers(String keyword, Integer pageNum, Integer pageSize, String order, Long currentUid) {
         if (pageNum == null || pageNum < 1) pageNum = 1;
         else if (pageNum > 100) pageNum = 100;
         if (pageSize == null || pageSize < 1) pageSize = 10;
         else if (pageSize > 50) pageSize = 50;
+        if (order == null || order.isEmpty()) order = "default";
 
-        // 1. 构建 NativeQuery，多字段匹配
+        int fetchSize = 200;
         NativeQuery query = NativeQuery.builder()
                 .withQuery(q -> q.bool(b -> b
-                        .should(s -> s.wildcard(w -> w  // 通配符查询
+                        .should(s -> s.wildcard(w -> w
                                 .field("username")
                                 .value("*" + keyword + "*")
                                 .caseInsensitive(true)
@@ -400,19 +405,129 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                         .field("_score")
                         .order(SortOrder.Desc)
                 ))
-                .withPageable(PageRequest.of(pageNum - 1, pageSize))
+                .withPageable(PageRequest.of(0, fetchSize))
                 .build();
 
-        // 2. 执行搜索
         SearchHits<UserDocument> search = esOperations.search(query, UserDocument.class);
         if (search.getTotalHits() == 0) {
             return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST);
         }
 
-        List<UserDocument> userDocumentList = search.stream()
-                .map(SearchHit::getContent)
+        List<Long> uidList = search.stream()
+                .map(hit -> hit.getContent().getUid())
                 .toList();
-        return ResultData.success(userDocumentList);
+
+        List<User> users = new LambdaQueryChainWrapper<>(userMapper)
+                .in(User::getUid, uidList)
+                .list();
+
+        Map<Long, User> userMap = new HashMap<>();
+        for (User u : users) {
+            userMap.put(u.getUid(), u);
+        }
+
+        List<User> orderedUsers = new ArrayList<>();
+        for (Long uid : uidList) {
+            User u = userMap.get(uid);
+            if (u != null) {
+                orderedUsers.add(u);
+            }
+        }
+
+        Map<Long, Long> fanCountMap = new HashMap<>();
+        Map<Long, Long> videoCountMap = new HashMap<>();
+        if (!orderedUsers.isEmpty()) {
+            List<Long> orderedUids = orderedUsers.stream().map(User::getUid).toList();
+            List<Map<String, Object>> fanCounts = userMapper.getFanCountBatch(orderedUids);
+            for (Map<String, Object> m : fanCounts) {
+                fanCountMap.put(((Number) m.get("uid")).longValue(), ((Number) m.get("fan_count")).longValue());
+            }
+            List<Map<String, Object>> videoCounts = userMapper.getVideoCountBatch(orderedUids);
+            for (Map<String, Object> m : videoCounts) {
+                videoCountMap.put(((Number) m.get("uid")).longValue(), ((Number) m.get("video_count")).longValue());
+            }
+        }
+
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        for (User u : orderedUsers) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("uid", u.getUid());
+            map.put("username", u.getUsername());
+            map.put("nickname", u.getNickname());
+            map.put("avatar", u.getAvatar());
+            map.put("description", u.getDescription());
+            map.put("exp", u.getExp());
+            map.put("level", calcLevel(u.getExp()));
+            map.put("auth", u.getAuth());
+            map.put("authMsg", u.getAuthMsg());
+            map.put("vip", u.getVip());
+            map.put("fanCount", fanCountMap.getOrDefault(u.getUid(), 0L));
+            map.put("videoCount", videoCountMap.getOrDefault(u.getUid(), 0L));
+            resultList.add(map);
+        }
+
+        switch (order) {
+            case "fan_desc" -> resultList.sort((a, b) ->
+                    Long.compare((Long) b.get("fanCount"), (Long) a.get("fanCount")));
+            case "fan_asc" -> resultList.sort((a, b) ->
+                    Long.compare((Long) a.get("fanCount"), (Long) b.get("fanCount")));
+            case "level_desc" -> resultList.sort((a, b) ->
+                    Integer.compare((Integer) b.get("level"), (Integer) a.get("level")));
+            case "level_asc" -> resultList.sort((a, b) ->
+                    Integer.compare((Integer) a.get("level"), (Integer) b.get("level")));
+            default -> {
+            }
+        }
+
+        // 填充 isFollowing 字段
+        if (currentUid != null && !resultList.isEmpty()) {
+            List<Long> targetUids = resultList.stream()
+                    .map(m -> ((Number) m.get("uid")).longValue())
+                    .filter(uid -> !uid.equals(currentUid))
+                    .toList();
+            if (!targetUids.isEmpty()) {
+                List<Long> myFollowingUids = new LambdaQueryChainWrapper<>(followMapper)
+                        .select(Follow::getFollowingUid)
+                        .eq(Follow::getFollowerUid, currentUid)
+                        .in(Follow::getFollowingUid, targetUids)
+                        .list()
+                        .stream()
+                        .map(Follow::getFollowingUid)
+                        .toList();
+                Set<Long> followingSet = new HashSet<>(myFollowingUids);
+                for (Map<String, Object> map : resultList) {
+                    Long uid = ((Number) map.get("uid")).longValue();
+                    map.put("isFollowing", followingSet.contains(uid));
+                }
+            } else {
+                for (Map<String, Object> map : resultList) {
+                    map.put("isFollowing", false);
+                }
+            }
+        } else {
+            for (Map<String, Object> map : resultList) {
+                map.put("isFollowing", false);
+            }
+        }
+
+        int fromIndex = (pageNum - 1) * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, resultList.size());
+        if (fromIndex >= resultList.size()) {
+            return ResultData.success(new ArrayList<>(), "用户列表为空");
+        }
+        List<Map<String, Object>> pageResult = resultList.subList(fromIndex, toIndex);
+        return ResultData.success(pageResult);
+    }
+
+    private int calcLevel(Integer exp) {
+        if (exp == null) return 0;
+        int[] levelExp = {0, 200, 1500, 4500, 10800, 28800};
+        for (int i = levelExp.length - 1; i >= 0; i--) {
+            if (exp >= levelExp[i]) {
+                return i + 1;
+            }
+        }
+        return 1;
     }
 
 }

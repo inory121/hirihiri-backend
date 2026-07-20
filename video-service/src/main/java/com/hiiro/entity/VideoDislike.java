@@ -1,6 +1,5 @@
 package com.hiiro.entity;
 
-import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,15 +10,15 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 视频收藏记录表
+ * 视频点踩记录表
  *
  * @author hiiro
- * @since 2025-06-23
+ * @since 2025-06-26
  */
 @Data
-@TableName("video_collect")
-@Tag(name = "VideoCollect对象", description = "视频收藏记录表")
-public class VideoCollect implements Serializable {
+@TableName("video_dislike")
+@Tag(name = "VideoDislike对象", description = "视频点踩记录表")
+public class VideoDislike implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -37,15 +36,8 @@ public class VideoCollect implements Serializable {
     private Long vid;
 
     /**
-     * 收藏夹ID
+     * 点踩时间
      */
-    @TableId(type = com.baomidou.mybatisplus.annotation.IdType.INPUT)
-    @Schema(description = "收藏夹ID", name = "folderId")
-    private Long folderId;
-
-    /**
-     * 收藏时间
-     */
-    @Schema(description = "收藏时间", name = "createTime")
+    @Schema(description = "点踩时间", name = "createTime")
     private LocalDateTime createTime;
 }

@@ -116,4 +116,11 @@ public class UserDTO implements Serializable {
     @Schema(description = "创建时间",name = "createDate")
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createDate;
+
+    /**
+     * 当前登录用户是否已关注该用户（非数据库字段，用于接口返回）
+     */
+    @TableField(exist = false)
+    @Schema(description = "当前登录用户是否已关注该用户")
+    private Boolean isFollowing;
 }

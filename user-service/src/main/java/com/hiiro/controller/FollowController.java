@@ -65,14 +65,16 @@ public class FollowController {
      * @param uid      被关注者 uid
      * @param pageNum  页码（可选，默认 1）
      * @param pageSize 每页数量（可选，默认 30）
-     * @return 粉丝用户信息列表
+     * @return 粉丝用户信息列表（包含isFollowing字段）
      */
     @Operation(summary = "获取粉丝列表")
     @GetMapping("/followers/{uid}")
     public ResultData<List<UserDTO>> getFollowers(@PathVariable("uid") Long uid,
                                                   @RequestParam(name = "pageNum", required = false) Integer pageNum,
-                                                  @RequestParam(name = "pageSize", required = false) Integer pageSize) {
-        return followService.getFollowers(uid, pageNum, pageSize);
+                                                  @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                  @RequestHeader(value = "uid", required = false) String myUid) {
+        Long currentUid = (myUid != null && !myUid.isEmpty()) ? Long.parseLong(myUid) : null;
+        return followService.getFollowers(uid, pageNum, pageSize, currentUid);
     }
 
     /**
@@ -81,13 +83,15 @@ public class FollowController {
      * @param uid      关注者 uid
      * @param pageNum  页码（可选，默认 1）
      * @param pageSize 每页数量（可选，默认 30）
-     * @return 被关注用户信息列表
+     * @return 被关注用户信息列表（包含isFollowing字段）
      */
     @Operation(summary = "获取关注列表")
     @GetMapping("/followings/{uid}")
     public ResultData<List<UserDTO>> getFollowings(@PathVariable("uid") Long uid,
                                                    @RequestParam(name = "pageNum", required = false) Integer pageNum,
-                                                   @RequestParam(name = "pageSize", required = false) Integer pageSize) {
-        return followService.getFollowings(uid, pageNum, pageSize);
+                                                   @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                   @RequestHeader(value = "uid", required = false) String myUid) {
+        Long currentUid = (myUid != null && !myUid.isEmpty()) ? Long.parseLong(myUid) : null;
+        return followService.getFollowings(uid, pageNum, pageSize, currentUid);
     }
 }

@@ -91,4 +91,18 @@ public interface VideoStatService extends IService<VideoStat> {
      * @param vid 视频ID
      */
     void decrementFavorite(Long vid);
+
+    /**
+     * 视频的点踩数+1
+     *
+     * @param vid 视频ID
+     */
+    void incrementDislike(Long vid);
+
+    /**
+     * 视频的点踩数-1
+     *
+     * @param vid 视频ID
+     */
+    void decrementDislike(Long vid);
 }

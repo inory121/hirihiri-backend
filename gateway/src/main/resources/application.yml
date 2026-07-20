@@ -25,7 +25,7 @@ spring:
         - id: video-route
           uri: lb://video-service
           predicates:
-            - Path=/api/video/**,/api/category/**,/api/danmaku/**,/api/comment/**,/api/history/**
+            - Path=/api/video/**,/api/category/**,/api/danmaku/**,/api/comment/**,/api/history/**,/api/favorite/**
 # 网关鉴权公开路径配置（无需登录即可访问）
 # 使用 Spring PathPattern 语法，支持通配符和正则变量：
 #   /api/xxx              精确匹配
@@ -53,3 +53,8 @@ security:
     - /api/follow/followers/{uid:[0-9]+}
     - /api/follow/followings/{uid:[0-9]+}
     - /api/video/interaction/status/{vid:[0-9]+}
+    - /api/video/interaction/recent/coins
+    - /api/video/interaction/recent/likes
+    - /api/favorite/folders
+    - /api/favorite/recent
+    - /api/favorite/folder/{folderId:[0-9]+}/videos

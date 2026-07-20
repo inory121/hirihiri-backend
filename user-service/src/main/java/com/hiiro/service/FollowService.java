@@ -16,7 +16,7 @@ public interface FollowService extends IService<Follow> {
 
     ResultData<HashMap<String, Long>> getFollowCount(Long uid);
 
-    ResultData<List<UserDTO>> getFollowers(Long uid, Integer pageNum, Integer pageSize);
+    ResultData<List<UserDTO>> getFollowers(Long uid, Integer pageNum, Integer pageSize, Long currentUid);
 
-    ResultData<List<UserDTO>> getFollowings(Long uid, Integer pageNum, Integer pageSize);
+    ResultData<List<UserDTO>> getFollowings(Long uid, Integer pageNum, Integer pageSize, Long currentUid);
 }

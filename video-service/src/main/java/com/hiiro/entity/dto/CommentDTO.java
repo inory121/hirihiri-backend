@@ -81,6 +81,24 @@ public class CommentDTO implements Serializable {
     private Integer dislike;
 
     /**
+     * 当前用户是否点赞
+     */
+    @Schema(description = "当前用户是否点赞", name = "liked")
+    private Boolean liked;
+
+    /**
+     * 当前用户是否点踩
+     */
+    @Schema(description = "当前用户是否点踩", name = "disliked")
+    private Boolean disliked;
+
+    /**
+     * UP主是否点赞
+     */
+    @Schema(description = "UP主是否点赞", name = "upLiked")
+    private Boolean upLiked;
+
+    /**
      * 创建时间
      */
     @Schema(description = "创建时间", name = "createDate")

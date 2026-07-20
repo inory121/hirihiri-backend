@@ -5,13 +5,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hiiro.apis.UserFeignApi;
-import com.hiiro.entity.Comment;
-import com.hiiro.entity.ResultCodeEnum;
-import com.hiiro.entity.ResultData;
+import com.hiiro.entity.*;
 import com.hiiro.entity.dto.CommentDTO;
 import com.hiiro.entity.dto.CommentPageDTO;
 import com.hiiro.entity.dto.UserDTO;
+import com.hiiro.mapper.CommentDislikeMapper;
+import com.hiiro.mapper.CommentLikeMapper;
 import com.hiiro.mapper.CommentMapper;
+import com.hiiro.mapper.VideoMapper;
 import com.hiiro.service.CommentService;
 import com.hiiro.service.VideoStatService;
 import jakarta.annotation.Resource;
@@ -32,14 +33,26 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     CommentMapper commentMapper;
 
     @Resource
+    CommentLikeMapper commentLikeMapper;
+
+    @Resource
+    CommentDislikeMapper commentDislikeMapper;
+
+    @Resource
+    VideoMapper videoMapper;
+
+    @Resource
     VideoStatService videoStatService;
 
     @Resource
     UserFeignApi userFeignApi;
 
     @Override
-    public ResultData<CommentPageDTO> getComments(Long vid, String sort, int page, int pageSize) {
+    public ResultData<CommentPageDTO> getComments(Long vid, String sort, int page, int pageSize, Long currentUid) {
         long start = System.currentTimeMillis();
+
+        Video video = videoMapper.selectById(vid);
+        Long videoUpUid = video != null ? video.getUid() : null;
 
         // 1. 构建根评论查询条件
         LambdaQueryWrapper<Comment> rootWrapper = new LambdaQueryWrapper<Comment>()
@@ -83,6 +96,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         List<Comment> allComments = new ArrayList<>(rootComments);
         allComments.addAll(replies);
 
+        List<Long> allCommentIds = allComments.stream().map(Comment::getId).collect(Collectors.toList());
+
         // 5. 批量获取用户信息
         List<Long> allUserIds = allComments.stream()
                 .flatMap(comment -> Stream.of(comment.getUid(), comment.getToUserId()))
@@ -93,10 +108,40 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
                 ? Collections.emptyList()
                 : userFeignApi.getBatchUserInfo(allUserIds);
 
-        // 6. 构建评论树
-        List<CommentDTO> rootDTOs = buildCommentTreeIterative(allComments, users);
+        // 6. 查询当前用户点赞/点踩状态
+        Set<Long> likedCommentIds = new HashSet<>();
+        Set<Long> dislikedCommentIds = new HashSet<>();
+        if (currentUid != null) {
+            List<CommentLike> likedList = commentLikeMapper.selectList(
+                    new LambdaQueryWrapper<CommentLike>()
+                            .eq(CommentLike::getUid, currentUid)
+                            .in(CommentLike::getCommentId, allCommentIds)
+            );
+            likedCommentIds = likedList.stream().map(CommentLike::getCommentId).collect(Collectors.toSet());
 
-        // 7. 对根评论按原排序方式排序（分页查询时已排序，但构建树后需要保持顺序）
+            List<CommentDislike> dislikedList = commentDislikeMapper.selectList(
+                    new LambdaQueryWrapper<CommentDislike>()
+                            .eq(CommentDislike::getUid, currentUid)
+                            .in(CommentDislike::getCommentId, allCommentIds)
+            );
+            dislikedCommentIds = dislikedList.stream().map(CommentDislike::getCommentId).collect(Collectors.toSet());
+        }
+
+        // 7. 查询UP主点赞的评论
+        Set<Long> upLikedCommentIds = new HashSet<>();
+        if (videoUpUid != null) {
+            List<CommentLike> upLikedList = commentLikeMapper.selectList(
+                    new LambdaQueryWrapper<CommentLike>()
+                            .eq(CommentLike::getUid, videoUpUid)
+                            .in(CommentLike::getCommentId, allCommentIds)
+            );
+            upLikedCommentIds = upLikedList.stream().map(CommentLike::getCommentId).collect(Collectors.toSet());
+        }
+
+        // 8. 构建评论树
+        List<CommentDTO> rootDTOs = buildCommentTreeIterative(allComments, users, likedCommentIds, dislikedCommentIds, upLikedCommentIds);
+
+        // 9. 对根评论按原排序方式排序（分页查询时已排序，但构建树后需要保持顺序）
         String sortMode = sort == null ? "hot" : sort;
         if ("hot".equalsIgnoreCase(sortMode)) {
             rootDTOs.sort((a, b) -> {
@@ -115,7 +160,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             });
         }
 
-        // 8. 子评论按时间升序排列
+        // 10. 子评论按时间升序排列
         rootDTOs.forEach(root -> {
             List<CommentDTO> allReplies = new ArrayList<>();
             collectAllReplies(root.getReplies(), allReplies);
@@ -132,7 +177,9 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         return ResultData.success(result, "获取评论信息成功");
     }
 
-    private List<CommentDTO> buildCommentTreeIterative(List<Comment> comments, List<UserDTO> users) {
+    private List<CommentDTO> buildCommentTreeIterative(List<Comment> comments, List<UserDTO> users,
+                                                       Set<Long> likedCommentIds, Set<Long> dislikedCommentIds,
+                                                       Set<Long> upLikedCommentIds) {
         Map<Long, UserDTO> userMap = users.stream()
                 .collect(Collectors.toMap(UserDTO::getUid, user -> user));
 
@@ -145,6 +192,9 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             if (c.getToUserId() != null) {
                 dto.setToUser(userMap.get(c.getToUserId()));
             }
+            dto.setLiked(likedCommentIds.contains(c.getId()));
+            dto.setDisliked(dislikedCommentIds.contains(c.getId()));
+            dto.setUpLiked(upLikedCommentIds.contains(c.getId()));
             dto.setReplies(new ArrayList<>());
             dtoMap.put(c.getId(), dto);
         }
@@ -199,5 +249,103 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             }
         }
         return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "发送评论失败");
+    }
+
+    @Override
+    @Transactional
+    public ResultData<String> toggleLike(Long uid, Long commentId) {
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null || comment.getIsDeleted() == 1) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "评论不存在");
+        }
+
+        CommentLike existing = commentLikeMapper.selectOne(
+                new LambdaQueryWrapper<CommentLike>()
+                        .eq(CommentLike::getUid, uid)
+                        .eq(CommentLike::getCommentId, commentId)
+        );
+
+        if (existing != null) {
+            commentLikeMapper.delete(
+                    new LambdaQueryWrapper<CommentLike>()
+                            .eq(CommentLike::getUid, uid)
+                            .eq(CommentLike::getCommentId, commentId)
+            );
+            comment.setLike(Math.max(0, comment.getLike() - 1));
+            commentMapper.updateById(comment);
+            return ResultData.success("取消点赞");
+        } else {
+            CommentDislike existingDislike = commentDislikeMapper.selectOne(
+                    new LambdaQueryWrapper<CommentDislike>()
+                            .eq(CommentDislike::getUid, uid)
+                            .eq(CommentDislike::getCommentId, commentId)
+            );
+            if (existingDislike != null) {
+                commentDislikeMapper.delete(
+                        new LambdaQueryWrapper<CommentDislike>()
+                                .eq(CommentDislike::getUid, uid)
+                                .eq(CommentDislike::getCommentId, commentId)
+                );
+                comment.setDislike(Math.max(0, comment.getDislike() - 1));
+            }
+
+            CommentLike commentLike = new CommentLike();
+            commentLike.setUid(uid);
+            commentLike.setCommentId(commentId);
+            commentLike.setCreateTime(LocalDateTime.now());
+            commentLikeMapper.insert(commentLike);
+            comment.setLike(comment.getLike() + 1);
+            commentMapper.updateById(comment);
+            return ResultData.success("点赞成功");
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResultData<String> toggleDislike(Long uid, Long commentId) {
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null || comment.getIsDeleted() == 1) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "评论不存在");
+        }
+
+        CommentDislike existing = commentDislikeMapper.selectOne(
+                new LambdaQueryWrapper<CommentDislike>()
+                        .eq(CommentDislike::getUid, uid)
+                        .eq(CommentDislike::getCommentId, commentId)
+        );
+
+        if (existing != null) {
+            commentDislikeMapper.delete(
+                    new LambdaQueryWrapper<CommentDislike>()
+                            .eq(CommentDislike::getUid, uid)
+                            .eq(CommentDislike::getCommentId, commentId)
+            );
+            comment.setDislike(Math.max(0, comment.getDislike() - 1));
+            commentMapper.updateById(comment);
+            return ResultData.success("取消点踩");
+        } else {
+            CommentLike existingLike = commentLikeMapper.selectOne(
+                    new LambdaQueryWrapper<CommentLike>()
+                            .eq(CommentLike::getUid, uid)
+                            .eq(CommentLike::getCommentId, commentId)
+            );
+            if (existingLike != null) {
+                commentLikeMapper.delete(
+                        new LambdaQueryWrapper<CommentLike>()
+                                .eq(CommentLike::getUid, uid)
+                                .eq(CommentLike::getCommentId, commentId)
+                );
+                comment.setLike(Math.max(0, comment.getLike() - 1));
+            }
+
+            CommentDislike commentDislike = new CommentDislike();
+            commentDislike.setUid(uid);
+            commentDislike.setCommentId(commentId);
+            commentDislike.setCreateTime(LocalDateTime.now());
+            commentDislikeMapper.insert(commentDislike);
+            comment.setDislike(comment.getDislike() + 1);
+            commentMapper.updateById(comment);
+            return ResultData.success("点踩成功");
+        }
     }
 }

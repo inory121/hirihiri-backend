@@ -11,6 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * 视频互动接口（点赞、投币、收藏）
  *
@@ -41,6 +44,20 @@ public class VideoInteractionController {
     }
 
     /**
+     * 点踩/取消点踩
+     */
+    @Operation(summary = "点踩/取消点踩")
+    @PostMapping("/dislike/{vid}")
+    public ResultData<String> toggleDislike(@PathVariable("vid") Long vid, HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
+        }
+        Long uid = Long.valueOf(uidStr);
+        return videoInteractionService.toggleDislike(uid, vid);
+    }
+
+    /**
      * 投币/取消投币
      */
     @Operation(summary = "投币/取消投币")
@@ -55,17 +72,20 @@ public class VideoInteractionController {
     }
 
     /**
-     * 收藏/取消收藏
+     * 收藏到指定收藏夹
      */
-    @Operation(summary = "收藏/取消收藏")
-    @PostMapping("/collect/{vid}")
-    public ResultData<String> toggleCollect(@PathVariable("vid") Long vid, HttpServletRequest request) {
+    @Operation(summary = "收藏到指定收藏夹")
+    @PostMapping("/collect/{vid}/folder/{folderId}")
+    public ResultData<String> collectToFolder(
+            @PathVariable("vid") Long vid,
+            @PathVariable("folderId") Long folderId,
+            HttpServletRequest request) {
         String uidStr = request.getHeader("uid");
         if (!StringUtils.hasText(uidStr)) {
             return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
         }
         Long uid = Long.valueOf(uidStr);
-        return videoInteractionService.toggleCollect(uid, vid);
+        return videoInteractionService.collectToFolder(uid, vid, folderId);
     }
 
     /**
@@ -77,9 +97,57 @@ public class VideoInteractionController {
         String uidStr = request.getHeader("uid");
         if (!StringUtils.hasText(uidStr)) {
             // 未登录返回全部 false
-            return ResultData.success(new Boolean[]{false, false, false});
+            return ResultData.success(new Boolean[]{false, false, false, false});
         }
         Long uid = Long.valueOf(uidStr);
         return videoInteractionService.getInteractionStatus(uid, vid);
+    }
+
+    /**
+     * 获取用户最近投币的视频
+     */
+    @Operation(summary = "获取最近投币的视频")
+    @GetMapping("/recent/coins")
+    public ResultData<List<Map<String, Object>>> getRecentCoinVideos(
+            @RequestParam(value = "limit", defaultValue = "10") Integer limit,
+            @RequestParam(value = "uid", required = false) Long targetUid,
+            HttpServletRequest request) {
+        Long uid;
+        if (targetUid != null) {
+            // 查询指定用户
+            uid = targetUid;
+        } else {
+            // 查询当前登录用户
+            String uidStr = request.getHeader("uid");
+            if (!StringUtils.hasText(uidStr)) {
+                return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
+            }
+            uid = Long.valueOf(uidStr);
+        }
+        return videoInteractionService.getRecentCoinVideos(uid, limit);
+    }
+
+    /**
+     * 获取用户最近点赞的视频
+     */
+    @Operation(summary = "获取最近点赞的视频")
+    @GetMapping("/recent/likes")
+    public ResultData<List<Map<String, Object>>> getRecentLikeVideos(
+            @RequestParam(value = "limit", defaultValue = "10") Integer limit,
+            @RequestParam(value = "uid", required = false) Long targetUid,
+            HttpServletRequest request) {
+        Long uid;
+        if (targetUid != null) {
+            // 查询指定用户
+            uid = targetUid;
+        } else {
+            // 查询当前登录用户
+            String uidStr = request.getHeader("uid");
+            if (!StringUtils.hasText(uidStr)) {
+                return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
+            }
+            uid = Long.valueOf(uidStr);
+        }
+        return videoInteractionService.getRecentLikeVideos(uid, limit);
     }
 }

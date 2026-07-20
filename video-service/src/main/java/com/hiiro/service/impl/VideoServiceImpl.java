@@ -21,6 +21,7 @@ import com.hiiro.service.cache.CategoryCacheService;
 import com.hiiro.service.cache.UserCacheService;
 import com.hiiro.service.cache.VideoStatCacheService;
 import com.hiiro.service.fallback.SentinelFallbackHandlers;
+import com.hiiro.utils.RedisUtil;
 import io.micrometer.core.annotation.Timed;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -80,6 +81,11 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	private UserCacheService userCacheService;
 	@Resource
 	private VideoStatCacheService videoStatCacheService;
+	@Resource
+	private RedisUtil redisUtil;
+
+	private static final String HOT_SEARCH_KEY = "search:hot:list";
+	private static final long HOT_SEARCH_EXPIRE_DAYS = 7;
 
 	// 校验并构建分页对象
 	private Page<Video> validateAndBuildPage(Integer pageNum, Integer pageSize) {
@@ -328,16 +334,24 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	@Override
 	@Timed(value = "video.search", percentiles = {0.9, 0.95, 0.99})
 	@SentinelResource(value = "video_search", fallback = "searchFallback", fallbackClass = SentinelFallbackHandlers.class, blockHandler = "searchBlocked", blockHandlerClass = SentinelFallbackHandlers.class)
-	public ResultData<List<Map<String, Object>>> searchVideos(String keyword, Integer pageNum, Integer pageSize) {
+	public ResultData<List<Map<String, Object>>> searchVideos(String keyword, Integer pageNum, Integer pageSize, String order) {
 		long t0 = System.nanoTime();
 		try {
-			Page<Video> page = validateAndBuildPage(pageNum, pageSize);
-			int safePageNum = (int) page.getCurrent();
-			int safePageSize = (int) page.getSize();
+			redisUtil.zIncrementScore(HOT_SEARCH_KEY, keyword, 1.0);
+			redisUtil.setExpire(HOT_SEARCH_KEY, HOT_SEARCH_EXPIRE_DAYS, TimeUnit.DAYS);
+
+			if (pageNum == null || pageNum < 1) pageNum = 1;
+			else if (pageNum > 100) pageNum = 100;
+			if (pageSize == null || pageSize < 1) pageSize = 10;
+			else if (pageSize > 50) pageSize = 50;
+			final String sortOrder = (order == null || order.isEmpty()) ? "default" : order;
+
+			int fetchSize = 200;
 
 			HighlightParameters highlightParams = HighlightParameters.builder()
 					.withPreTags("<em class='keyword'>")
 					.withPostTags("</em>")
+					.withNumberOfFragments(0)
 					.build();
 
 			List<HighlightField> highlightFields = List.of(
@@ -365,7 +379,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 							.order(SortOrder.Desc)
 					))
 					.withHighlightQuery(new HighlightQuery(highlight, VideoDocument.class))
-					.withPageable(PageRequest.of(safePageNum - 1, safePageSize))
+					.withPageable(PageRequest.of(0, fetchSize))
 					.build();
 
 			SearchHits<VideoDocument> search = esOperations.search(query, VideoDocument.class);
@@ -407,11 +421,154 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 				}
 			}
 
-			page.setRecords(orderedVideos);
+			if (!"default".equals(sortOrder)) {
+				List<Long> allVids = orderedVideos.stream().map(Video::getVid).toList();
+				Map<Long, VideoStat> statMap = videoStatCacheService.getBatch(allVids);
+
+				orderedVideos.sort((a, b) -> {
+					VideoStat sa = statMap.getOrDefault(a.getVid(), new VideoStat());
+					VideoStat sb = statMap.getOrDefault(b.getVid(), new VideoStat());
+					return switch (sortOrder) {
+						case "view" -> Integer.compare(
+								sb.getView() != null ? sb.getView() : 0,
+								sa.getView() != null ? sa.getView() : 0);
+						case "danmaku" -> Integer.compare(
+								sb.getDanmaku() != null ? sb.getDanmaku() : 0,
+								sa.getDanmaku() != null ? sa.getDanmaku() : 0);
+						case "favorite" -> Integer.compare(
+								sb.getFavorite() != null ? sb.getFavorite() : 0,
+								sa.getFavorite() != null ? sa.getFavorite() : 0);
+						case "date" -> b.getCreateDate().compareTo(a.getCreateDate());
+						default -> 0;
+					};
+				});
+			}
+
+			int fromIndex = (pageNum - 1) * pageSize;
+			int toIndex = Math.min(fromIndex + pageSize, orderedVideos.size());
+			if (fromIndex >= orderedVideos.size()) {
+				return ResultData.success(Collections.emptyList(), "视频列表为空");
+			}
+			List<Video> pageVideos = orderedVideos.subList(fromIndex, toIndex);
+
+			Page<Video> page = new Page<>(pageNum, pageSize);
+			page.setRecords(pageVideos);
+			page.setTotal(orderedVideos.size());
+
 			return processVideoPage(page);
 		} finally {
 			long ms = (System.nanoTime() - t0) / 1_000_000;
 			log.info("searchVideos end2end={}ms", ms);
+		}
+	}
+
+	@Override
+	public ResultData<List<String>> getHotSearchList(int limit) {
+		try {
+			if (limit <= 0 || limit > 50) limit = 10;
+			Set<Object> hotSet = redisUtil.zReverseRange(HOT_SEARCH_KEY, 0, limit - 1);
+			List<String> hotList = hotSet.stream()
+					.map(Object::toString)
+					.collect(Collectors.toList());
+			return ResultData.success(hotList);
+		} catch (Exception e) {
+			log.error("获取热搜列表失败", e);
+			return ResultData.success(Collections.emptyList());
+		}
+	}
+
+	@Override
+	public ResultData<List<String>> searchSuggest(String keyword, int limit) {
+		long t0 = System.nanoTime();
+		try {
+			if (keyword == null || keyword.trim().isEmpty()) {
+				return ResultData.success(Collections.emptyList());
+			}
+			final int maxSize = (limit <= 0 || limit > 50) ? 10 : limit;
+			String kw = keyword.trim();
+			String kwLower = kw.toLowerCase();
+
+			LinkedHashSet<String> result = new LinkedHashSet<>();
+
+			// 第一步：从热搜里找前缀匹配的（中文前缀匹配，按热度排序）
+			try {
+				Set<Object> hotSet = redisUtil.zReverseRange(HOT_SEARCH_KEY, 0, 200);
+				for (Object obj : hotSet) {
+					String hot = obj.toString();
+					if (hot.toLowerCase().startsWith(kwLower)) {
+						result.add(hot);
+						if (result.size() >= maxSize) {
+							return ResultData.success(new ArrayList<>(result));
+						}
+					}
+				}
+			} catch (Exception e) {
+				log.warn("从热搜获取建议失败", e);
+			}
+
+			// 第二步：从 ES tags 字段匹配，提取 tag
+			try {
+				NativeQuery query = NativeQuery.builder()
+						.withQuery(q -> q.bool(b -> b
+								.should(s -> s.matchPhrasePrefix(m -> m
+										.field("tags")
+										.query(kw)
+								))
+								.should(s -> s.matchPhrasePrefix(m -> m
+										.field("title")
+										.query(kw)
+								))
+								.should(s -> s.matchPhrasePrefix(m -> m
+										.field("title.pinyin")
+										.query(kw)
+								))
+								.minimumShouldMatch("1")
+						))
+						.withSort(s -> s.field(f -> f
+								.field("_score")
+								.order(SortOrder.Desc)
+						))
+						.withPageable(PageRequest.of(0, 50))
+						.build();
+
+				SearchHits<VideoDocument> search = esOperations.search(query, VideoDocument.class);
+				if (search.getTotalHits() > 0) {
+					search.get().forEach(hit -> {
+						VideoDocument doc = hit.getContent();
+						if (doc.getTags() != null && !doc.getTags().isEmpty()) {
+							String[] tags = doc.getTags().split(",");
+							for (String tag : tags) {
+								String trimmed = tag.trim();
+								if (!trimmed.isEmpty() && trimmed.toLowerCase().startsWith(kwLower)) {
+									result.add(trimmed);
+								}
+							}
+						}
+					});
+				}
+
+				// 还不够的话，从标题里提取前若干字作为补充
+				if (result.size() < maxSize && search.getTotalHits() > 0) {
+					search.get()
+							.map(hit -> hit.getContent().getTitle())
+							.filter(Objects::nonNull)
+							.distinct()
+							.forEach(title -> {
+								if (result.size() < maxSize) {
+									String shortTitle = title.length() > 20 ? title.substring(0, 20) + "..." : title;
+									result.add(shortTitle);
+								}
+							});
+				}
+			} catch (Exception e) {
+				log.error("从 ES 获取搜索建议失败", e);
+			}
+
+			List<String> list = result.stream().limit(maxSize).collect(Collectors.toList());
+			return ResultData.success(list);
+		} finally {
+			long ms = (System.nanoTime() - t0) / 1_000_000;
+			log.info("searchSuggest end2end={}ms", ms);
 		}
 	}
 

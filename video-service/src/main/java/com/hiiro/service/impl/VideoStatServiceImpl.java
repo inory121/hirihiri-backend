@@ -100,6 +100,16 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
         decrementBySql(vid, "favorite");
     }
 
+    @Override
+    public void incrementDislike(Long vid) {
+        incrementBySql(vid, "dislike");
+    }
+
+    @Override
+    public void decrementDislike(Long vid) {
+        decrementBySql(vid, "dislike");
+    }
+
     private int decrementBySql(Long vid, String column) {
         return videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
                 .eq(VideoStat::getVid, vid)

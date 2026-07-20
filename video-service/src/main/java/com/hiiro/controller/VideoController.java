@@ -139,11 +139,43 @@ public class VideoController {
     @GetMapping("/search")
     public ResultData<List<Map<String, Object>>> searchVideos(@RequestParam("keyword") String keyword,
                                                               @RequestParam(name = "pageNum", required = false) Integer pageNum,
-                                                              @RequestParam(name = "pageSize", required = false) Integer pageSize) {
+                                                              @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                              @RequestParam(name = "order", required = false) String order) {
         if (keyword == null || keyword.trim().isEmpty() || keyword.length() > 100) {
             return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "搜索词长度必须在1-100字符之间");
         }
-        return videoService.searchVideos(keyword.trim(), pageNum, pageSize);
+        return videoService.searchVideos(keyword.trim(), pageNum, pageSize, order);
+    }
+
+    /**
+     * 搜索建议
+     *
+     * @param keyword 输入的关键词
+     * @param limit   返回数量，默认10
+     * @return 建议关键词列表
+     */
+    @Operation(summary = "搜索建议")
+    @GetMapping("/search/suggest")
+    public ResultData<List<String>> searchSuggest(
+            @RequestParam("keyword") String keyword,
+            @RequestParam(name = "limit", required = false, defaultValue = "10") Integer limit) {
+        if (keyword == null || keyword.trim().isEmpty() || keyword.length() > 50) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "搜索词长度必须在1-50字符之间");
+        }
+        return videoService.searchSuggest(keyword.trim(), limit != null ? limit : 10);
+    }
+
+    /**
+     * 获取热搜列表
+     *
+     * @param limit 返回数量，默认10
+     * @return ResultData对象
+     */
+    @Operation(summary = "获取热搜列表")
+    @GetMapping("/search/hot")
+    public ResultData<List<String>> getHotSearchList(
+            @RequestParam(name = "limit", required = false, defaultValue = "10") Integer limit) {
+        return videoService.getHotSearchList(limit != null ? limit : 10);
     }
 
     /**

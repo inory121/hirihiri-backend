@@ -10,11 +10,13 @@ import com.hiiro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * <p>
@@ -137,17 +139,29 @@ public class UserController {
      * @param keyword  关键词
      * @param pageNum  分页页数
      * @param pageSize 分页大小
+     * @param order    排序方式
+     * @param request  HTTP请求对象
      * @return ResultData对象
      */
     @Operation(summary = "搜索用户")
     @GetMapping("/search")
-    public ResultData<List<UserDocument>> searchUsers(@RequestParam("keyword") String keyword,
-                                                      @RequestParam(name = "pageNum", required = false) Integer pageNum,
-                                                      @RequestParam(name = "pageSize", required = false) Integer pageSize) {
+    public ResultData<List<Map<String, Object>>> searchUsers(@RequestParam("keyword") String keyword,
+                                                              @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                              @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                              @RequestParam(name = "order", required = false) String order,
+                                                              HttpServletRequest request) {
         if (keyword == null || keyword.trim().isEmpty() || keyword.length() > 50) {
             return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "搜索词长度必须在1-50字符之间");
         }
-        return userService.searchUsers(keyword.trim(), pageNum, pageSize);
+        Long currentUid = null;
+        String uidStr = request.getHeader("uid");
+        if (uidStr != null && !uidStr.isEmpty()) {
+            try {
+                currentUid = Long.valueOf(uidStr);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return userService.searchUsers(keyword.trim(), pageNum, pageSize, order, currentUid);
     }
 
 }

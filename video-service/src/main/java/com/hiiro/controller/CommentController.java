@@ -46,8 +46,11 @@ public class CommentController {
             @PathVariable("vid") Long vid,
             @RequestParam(name = "sort", defaultValue = "hot") String sort,
             @RequestParam(name = "page", defaultValue = "1") int page,
-            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
-        return commentService.getComments(vid, sort, page, pageSize);
+            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+            HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        Long currentUid = StringUtils.hasText(uidStr) ? Long.valueOf(uidStr) : null;
+        return commentService.getComments(vid, sort, page, pageSize, currentUid);
     }
 
     /**
@@ -66,5 +69,33 @@ public class CommentController {
         comment.setUid(Long.valueOf(uid));
         comment.setId(null);
         return commentService.sendComment(comment);
+    }
+
+    /**
+     * 评论点赞/取消点赞
+     */
+    @Operation(summary = "评论点赞/取消点赞")
+    @PostMapping("/like/{commentId}")
+    public ResultData<String> toggleLike(@PathVariable("commentId") Long commentId, HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
+        }
+        Long uid = Long.valueOf(uidStr);
+        return commentService.toggleLike(uid, commentId);
+    }
+
+    /**
+     * 评论点踩/取消点踩
+     */
+    @Operation(summary = "评论点踩/取消点踩")
+    @PostMapping("/dislike/{commentId}")
+    public ResultData<String> toggleDislike(@PathVariable("commentId") Long commentId, HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
+        }
+        Long uid = Long.valueOf(uidStr);
+        return commentService.toggleDislike(uid, commentId);
     }
 }
