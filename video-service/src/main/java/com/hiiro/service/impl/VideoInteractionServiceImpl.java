@@ -223,6 +223,13 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
             
             return ResultData.success("取消收藏");
         } else {
+            // 检查该视频是否已被该用户收藏到其他收藏夹
+            long existingCollectCount = videoCollectMapper.selectCount(
+                    new LambdaQueryWrapper<VideoCollect>()
+                            .eq(VideoCollect::getUid, uid)
+                            .eq(VideoCollect::getVid, vid)
+            );
+
             // 新收藏
             VideoCollect videoCollect = new VideoCollect();
             videoCollect.setUid(uid);
@@ -236,8 +243,10 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
             folder.setUpdateTime(LocalDateTime.now());
             favoriteFolderMapper.updateById(folder);
 
-            // 增加视频收藏数
-            videoStatService.incrementFavorite(vid);
+            // 只有当用户是第一次收藏该视频时才增加视频收藏数
+            if (existingCollectCount == 0) {
+                videoStatService.incrementFavorite(vid);
+            }
             return ResultData.success("收藏成功");
         }
     }
