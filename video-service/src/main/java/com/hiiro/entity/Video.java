@@ -107,6 +107,12 @@ public class Video implements Serializable {
     private Byte status;
 
     /**
+     * 是否置顶 0否 1是
+     */
+    @Schema(description = "是否置顶 0否 1是",name = "isTop")
+    private Byte isTop;
+
+    /**
      * 上传时间
      */
     @Schema(description = "上传时间",name = "createDate")

@@ -109,4 +109,31 @@ public interface VideoService extends IService<Video> {
      * @return ResultData对象
      */
     ResultData<List<Map<String, Object>>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize);
+
+    /**
+     * 获取用户置顶视频
+     *
+     * @param uid 用户ID
+     * @return 置顶视频详情（video + stat + category + user），无置顶返回null
+     */
+    ResultData<Map<String, Object>> getPinnedVideo(Long uid);
+
+    /**
+     * 设置置顶视频
+     * 自动取消该用户原来的置顶视频
+     *
+     * @param uid 当前登录用户ID
+     * @param vid 要置顶的视频ID
+     * @return 是否成功
+     */
+    ResultData<String> setPinnedVideo(Long uid, Long vid);
+
+    /**
+     * 取消置顶视频
+     *
+     * @param uid 当前登录用户ID
+     * @param vid 要取消置顶的视频ID
+     * @return 是否成功
+     */
+    ResultData<String> cancelPinnedVideo(Long uid, Long vid);
 }

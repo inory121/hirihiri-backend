@@ -201,7 +201,7 @@ def main():
             bcrypt.gensalt()
         ).decode()
         default_avatar = 'https://hirihiri.oss-cn-nanjing.aliyuncs.com/noface.jpg'
-        default_bg = 'https://i0.hdslb.com/bfs/space/cb1c3ef50e22b6096fde67febe863494caefebad.png@2560w_400h_100q_1o.webp'
+        default_bg = 'https://hirihiri.oss-cn-nanjing.aliyuncs.com/background.png'
 
         while len(user_rows) < need_users and attempts < need_users * 3:
             attempts += 1

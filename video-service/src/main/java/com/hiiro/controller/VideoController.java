@@ -239,6 +239,32 @@ public class VideoController {
         return videoService.getVideosByUid(uid, pageNum, pageSize);
     }
 
+    @Operation(summary = "获取用户置顶视频")
+    @GetMapping("/pinned/{uid}")
+    public ResultData<Map<String, Object>> getPinnedVideo(@PathVariable("uid") Long uid) {
+        return videoService.getPinnedVideo(uid);
+    }
+
+    @Operation(summary = "设置置顶视频")
+    @PostMapping("/pinned/set/{vid}")
+    public ResultData<String> setPinnedVideo(@PathVariable("vid") Long vid, HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "请先登录");
+        }
+        return videoService.setPinnedVideo(Long.valueOf(uidStr), vid);
+    }
+
+    @Operation(summary = "取消置顶视频")
+    @PostMapping("/pinned/cancel/{vid}")
+    public ResultData<String> cancelPinnedVideo(@PathVariable("vid") Long vid, HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "请先登录");
+        }
+        return videoService.cancelPinnedVideo(Long.valueOf(uidStr), vid);
+    }
+
     /**
      * 获取客户端真实IP
      */

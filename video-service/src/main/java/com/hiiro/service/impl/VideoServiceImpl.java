@@ -602,4 +602,86 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 		}
 	}
 
+	@Override
+	public ResultData<Map<String, Object>> getPinnedVideo(Long uid) {
+		if (uid == null || uid <= 0) {
+			return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "用户ID无效");
+		}
+		Video video = videoMapper.selectOne(new LambdaQueryWrapper<Video>()
+				.eq(Video::getUid, uid)
+				.eq(Video::getIsTop, 1)
+				.eq(Video::getStatus, 1)
+				.last("LIMIT 1"));
+		if (video == null) {
+			return ResultData.success(null, "无置顶视频");
+		}
+		VideoStat stat = videoStatService.getVideoStatByVid(video.getVid());
+		Category category = categoryService.getCategoryById(video.getMcId(), video.getScId());
+		UserDTO userDTO = null;
+		try {
+			ResultData<UserDTO> resp = userFeignApi.getUserByUid(uid);
+			if (resp != null) {
+				userDTO = resp.getData();
+			}
+		} catch (Exception ex) {
+			log.warn("获取用户信息降级，uid={}", uid);
+		}
+		if (userDTO == null) {
+			userDTO = new UserDTO();
+		}
+		Map<String, Object> map = new HashMap<>();
+		map.put("video", video);
+		map.put("stat", stat != null ? stat : new VideoStat());
+		map.put("category", category != null ? category : new Category());
+		map.put("user", userDTO);
+		return ResultData.success(map, "获取置顶视频成功");
+	}
+
+	@Transactional
+	@Override
+	public ResultData<String> setPinnedVideo(Long uid, Long vid) {
+		if (uid == null || uid <= 0 || vid == null || vid <= 0) {
+			return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "参数无效");
+		}
+		Video video = videoMapper.selectById(vid);
+		if (video == null) {
+			return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST, "视频不存在");
+		}
+		if (!video.getUid().equals(uid)) {
+			return ResultData.fail(ResultCodeEnum.FORBIDDEN, "无权限操作此视频");
+		}
+		if (video.getStatus() == null || video.getStatus() != 1) {
+			return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "仅已过审视频可置顶");
+		}
+		new LambdaUpdateChainWrapper<>(videoMapper)
+				.eq(Video::getUid, uid)
+				.set(Video::getIsTop, (byte) 0)
+				.update();
+		boolean updated = new LambdaUpdateChainWrapper<>(videoMapper)
+				.eq(Video::getVid, vid)
+				.set(Video::getIsTop, (byte) 1)
+				.update();
+		return updated ? ResultData.success("设置置顶成功") : ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "设置置顶失败");
+	}
+
+	@Transactional
+	@Override
+	public ResultData<String> cancelPinnedVideo(Long uid, Long vid) {
+		if (uid == null || uid <= 0 || vid == null || vid <= 0) {
+			return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "参数无效");
+		}
+		Video video = videoMapper.selectById(vid);
+		if (video == null) {
+			return ResultData.fail(ResultCodeEnum.VIDEO_NOT_EXIST, "视频不存在");
+		}
+		if (!video.getUid().equals(uid)) {
+			return ResultData.fail(ResultCodeEnum.FORBIDDEN, "无权限操作此视频");
+		}
+		boolean updated = new LambdaUpdateChainWrapper<>(videoMapper)
+				.eq(Video::getVid, vid)
+				.set(Video::getIsTop, (byte) 0)
+				.update();
+		return updated ? ResultData.success("取消置顶成功") : ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "取消置顶失败");
+	}
+
 }
