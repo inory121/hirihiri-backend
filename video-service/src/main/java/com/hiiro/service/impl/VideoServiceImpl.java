@@ -334,7 +334,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	@Override
 	@Timed(value = "video.search", percentiles = {0.9, 0.95, 0.99})
 	@SentinelResource(value = "video_search", fallback = "searchFallback", fallbackClass = SentinelFallbackHandlers.class, blockHandler = "searchBlocked", blockHandlerClass = SentinelFallbackHandlers.class)
-	public ResultData<List<Map<String, Object>>> searchVideos(String keyword, Integer pageNum, Integer pageSize, String order) {
+	public ResultData<Map<String, Object>> searchVideos(String keyword, Integer pageNum, Integer pageSize, String order) {
 		long t0 = System.nanoTime();
 		try {
 			redisUtil.zIncrementScore(HOT_SEARCH_KEY, keyword, 1.0);
@@ -402,7 +402,10 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 
 			List<Long> pageVids = new ArrayList<>(orderedHits.keySet());
 			if (pageVids.isEmpty()) {
-				return ResultData.success(Collections.emptyList(), "视频列表为空");
+				Map<String, Object> body = new HashMap<>(2);
+				body.put("records", Collections.emptyList());
+				body.put("total", 0);
+				return ResultData.success(body, "视频列表为空");
 			}
 			List<Video> videos = new LambdaQueryChainWrapper<>(videoMapper)
 					.in(Video::getVid, pageVids)
@@ -447,7 +450,10 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 			int fromIndex = (pageNum - 1) * pageSize;
 			int toIndex = Math.min(fromIndex + pageSize, orderedVideos.size());
 			if (fromIndex >= orderedVideos.size()) {
-				return ResultData.success(Collections.emptyList(), "视频列表为空");
+				Map<String, Object> empty = new HashMap<>(2);
+				empty.put("records", Collections.emptyList());
+				empty.put("total", orderedVideos.size());
+				return ResultData.success(empty, "视频列表为空");
 			}
 			List<Video> pageVideos = orderedVideos.subList(fromIndex, toIndex);
 
@@ -455,7 +461,14 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 			page.setRecords(pageVideos);
 			page.setTotal(orderedVideos.size());
 
-			return processVideoPage(page);
+			ResultData<List<Map<String, Object>>> result = processVideoPage(page);
+			if (result.getCode() != 200) {
+				return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, result.getMessage());
+			}
+			Map<String, Object> body = new HashMap<>(2);
+			body.put("records", result.getData());
+			body.put("total", orderedVideos.size());
+			return ResultData.success(body, "搜索成功");
 		} finally {
 			long ms = (System.nanoTime() - t0) / 1_000_000;
 			log.info("searchVideos end2end={}ms", ms);
@@ -583,19 +596,40 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	@Override
 	@Timed(value = "video.by_uid", percentiles = {0.9, 0.95, 0.99})
 	@SentinelResource(value = "video_by_uid", fallback = "listFallback", fallbackClass = SentinelFallbackHandlers.class, blockHandler = "listBlocked", blockHandlerClass = SentinelFallbackHandlers.class)
-	public ResultData<List<Map<String, Object>>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize) {
+	public ResultData<Map<String, Object>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize, String order) {
 		long t0 = System.nanoTime();
 		try {
 			if (uid == null || uid <= 0) {
 				return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "用户ID无效");
 			}
 			Page<Video> page = validateAndBuildPage(pageNum, pageSize);
-			IPage<Video> videoPage = new LambdaQueryChainWrapper<>(videoMapper)
-					.eq(Video::getUid, uid)
-					.eq(Video::getStatus, 1)
-					.orderByDesc(Video::getCreateDate)
-					.page(page);
-			return processVideoPage(videoPage);
+			IPage<Video> videoPage;
+			// 白名单校验，防止 SQL 注入
+			String safeOrder = ("view".equals(order) || "favorite".equals(order)) ? order : null;
+			if (safeOrder != null) {
+				// 按 view/favorite 排序需 join video_stat，使用自定义 SQL
+				long offset = (page.getCurrent() - 1) * page.getSize();
+				List<Video> records = videoMapper.selectUserVideosWithStatOrder(uid, offset, (int) page.getSize(), safeOrder);
+				long total = videoMapper.countUserVideos(uid);
+				page.setRecords(records);
+				page.setTotal(total);
+				videoPage = page;
+			} else {
+				// 默认按创建时间倒序
+				videoPage = new LambdaQueryChainWrapper<>(videoMapper)
+						.eq(Video::getUid, uid)
+						.eq(Video::getStatus, 1)
+						.orderByDesc(Video::getCreateDate)
+						.page(page);
+			}
+			ResultData<List<Map<String, Object>>> result = processVideoPage(videoPage);
+			if (result.getCode() != 200) {
+				return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, result.getMessage());
+			}
+			Map<String, Object> body = new HashMap<>(2);
+			body.put("records", result.getData());
+			body.put("total", videoPage.getTotal());
+			return ResultData.success(body);
 		} finally {
 			long ms = (System.nanoTime() - t0) / 1_000_000;
 			log.info("getVideosByUid uid={} end2end={}ms", uid, ms);

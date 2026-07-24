@@ -10,13 +10,6 @@ spring:
       discovery:
         server-addr: localhost:8848
     gateway:
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowed-origin-patterns: '*'
-            allowed-methods: 'GET,POST,PUT,DELETE,OPTIONS'
-            allowed-headers: 'Authorization,Content-Type,X-Requested-With,uid,token'
-            allow-credentials: true
       routes:
         - id: user-route
           uri: lb://user-service
@@ -25,7 +18,7 @@ spring:
         - id: video-route
           uri: lb://video-service
           predicates:
-            - Path=/api/video/**,/api/category/**,/api/danmaku/**,/api/comment/**,/api/history/**,/api/favorite/**
+            - Path=/api/video/**,/api/category/**,/api/danmaku/**,/api/comment/**,/api/history/**,/api/favorite/**,/api/recommend/**
 # 网关鉴权公开路径配置（无需登录即可访问）
 # 使用 Spring PathPattern 语法，支持通配符和正则变量：
 #   /api/xxx              精确匹配
@@ -58,3 +51,7 @@ security:
     - /api/favorite/folders
     - /api/favorite/recent
     - /api/favorite/folder/{folderId:[0-9]+}/videos
+    - /api/recommend/feed
+    - /api/recommend/events
+    - /api/recommend/events/**
+    - /api/recommend/related/**

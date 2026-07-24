@@ -25,4 +25,7 @@ public interface UserFeignApi {
     @GetMapping("/api/user/info/{uid}")
     ResultData<UserDTO> getUserByUid(@PathVariable("uid") Long uid); //一定要写参数名"uid"，否则openfeign会使用post请求
 
+    @GetMapping("/api/follow/following-uids/{uid}")
+    ResultData<List<Long>> getFollowingUids(@PathVariable("uid") Long uid);
+
 }

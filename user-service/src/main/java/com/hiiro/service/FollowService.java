@@ -19,4 +19,12 @@ public interface FollowService extends IService<Follow> {
     ResultData<List<UserDTO>> getFollowers(Long uid, Integer pageNum, Integer pageSize, Long currentUid);
 
     ResultData<List<UserDTO>> getFollowings(Long uid, Integer pageNum, Integer pageSize, Long currentUid);
+
+    /**
+     * 获取用户关注的作者 uid 列表
+     *
+     * @param uid 关注者 uid
+     * @return 被关注者 uid 列表
+     */
+    List<Long> getFollowingUids(Long uid);
 }

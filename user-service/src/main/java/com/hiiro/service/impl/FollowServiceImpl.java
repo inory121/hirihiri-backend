@@ -177,7 +177,7 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         if (users == null || users.isEmpty()) {
             return;
         }
-        
+
         if (currentUid == null) {
             // 未登录，全部设为false
             for (UserDTO user : users) {
@@ -185,20 +185,20 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
             }
             return;
         }
-        
+
         // 批量查询当前用户对这些用户的关注状态
         List<Long> targetUids = users.stream()
                 .map(UserDTO::getUid)
                 .filter(targetUid -> !targetUid.equals(currentUid)) // 排除自己
                 .collect(Collectors.toList());
-        
+
         if (targetUids.isEmpty()) {
             for (UserDTO user : users) {
                 user.setIsFollowing(false);
             }
             return;
         }
-        
+
         // 查询当前用户关注的用户列表
         List<Long> myFollowingUids = lambdaQuery()
                 .select(Follow::getFollowingUid)
@@ -208,10 +208,24 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
                 .stream()
                 .map(Follow::getFollowingUid)
                 .collect(Collectors.toList());
-        
+
         // 填充isFollowing字段
         for (UserDTO user : users) {
             user.setIsFollowing(myFollowingUids.contains(user.getUid()));
         }
+    }
+
+    @Override
+    public List<Long> getFollowingUids(Long uid) {
+        if (uid == null) {
+            return List.of();
+        }
+        return lambdaQuery()
+                .select(Follow::getFollowingUid)
+                .eq(Follow::getFollowerUid, uid)
+                .list()
+                .stream()
+                .map(Follow::getFollowingUid)
+                .collect(Collectors.toList());
     }
 }

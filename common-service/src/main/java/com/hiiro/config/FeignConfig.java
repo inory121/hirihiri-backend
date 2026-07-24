@@ -18,18 +18,19 @@ public class FeignConfig {
     @Bean
     public RequestInterceptor authHeaderInterceptor() {
         return template -> {
-            // 从当前请求上下文中获取网关传递的头部
+            // 内部请求标识和密钥始终添加，不依赖请求上下文（异步线程也能正确标记）
+            template.header("X-Internal-Request", "true");
+            template.header("X-Internal-Key", internalKey);
+
+            // 从当前请求上下文中获取网关传递的头部（异步线程可能无上下文，此时不透传）
             ServletRequestAttributes attributes =
                     (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
-                // 透传网关添加的认证头
-                template.header("uid", request.getHeader("uid"));
-                template.header("token", request.getHeader("token"));
-                // 标记为内部请求
-                template.header("X-Internal-Request", "true");
-                template.header("X-Internal-Key", internalKey); // 验证密钥
+                String uid = request.getHeader("uid");
+                String token = request.getHeader("token");
+                if (uid != null) template.header("uid", uid);
+                if (token != null) template.header("token", token);
             }
         };
     }

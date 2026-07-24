@@ -24,6 +24,11 @@ public class UserFeignFallbackFactory implements FallbackFactory<UserFeignApi> {
 			public ResultData<UserDTO> getUserByUid(Long uid) {
 				return ResultData.fail(ResultCodeEnum.TOO_MANY_REQUESTS, "用户服务不可用");
 			}
+
+			@Override
+			public ResultData<List<Long>> getFollowingUids(Long uid) {
+				return ResultData.success(Collections.emptyList());
+			}
 		};
 	}
 }

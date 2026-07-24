@@ -121,5 +121,5 @@ public interface UserService extends IService<User> {
      * @param currentUid 当前登录用户uid（可选，用于填充isFollowing字段）
      * @return ResultData对象
      */
-    ResultData<List<Map<String, Object>>> searchUsers(String keyword, Integer pageNum, Integer pageSize, String order, Long currentUid);
+    ResultData<Map<String, Object>> searchUsers(String keyword, Integer pageNum, Integer pageSize, String order, Long currentUid);
 }

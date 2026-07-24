@@ -385,7 +385,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return ResultData对象
      */
     @Override
-    public ResultData<List<Map<String, Object>>> searchUsers(String keyword, Integer pageNum, Integer pageSize, String order, Long currentUid) {
+    public ResultData<Map<String, Object>> searchUsers(String keyword, Integer pageNum, Integer pageSize, String order, Long currentUid) {
         if (pageNum == null || pageNum < 1) pageNum = 1;
         else if (pageNum > 100) pageNum = 100;
         if (pageSize == null || pageSize < 1) pageSize = 10;
@@ -410,7 +410,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         SearchHits<UserDocument> search = esOperations.search(query, UserDocument.class);
         if (search.getTotalHits() == 0) {
-            return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST);
+            Map<String, Object> empty = new HashMap<>(2);
+            empty.put("records", Collections.emptyList());
+            empty.put("total", 0);
+            return ResultData.success(empty);
         }
 
         List<Long> uidList = search.stream()
@@ -512,11 +515,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         int fromIndex = (pageNum - 1) * pageSize;
         int toIndex = Math.min(fromIndex + pageSize, resultList.size());
+        Map<String, Object> body = new HashMap<>(2);
         if (fromIndex >= resultList.size()) {
-            return ResultData.success(new ArrayList<>(), "用户列表为空");
+            body.put("records", Collections.emptyList());
+            body.put("total", resultList.size());
+            return ResultData.success(body, "用户列表为空");
         }
         List<Map<String, Object>> pageResult = resultList.subList(fromIndex, toIndex);
-        return ResultData.success(pageResult);
+        body.put("records", pageResult);
+        body.put("total", resultList.size());
+        return ResultData.success(body);
     }
 
     private int calcLevel(Integer exp) {

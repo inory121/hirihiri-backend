@@ -94,4 +94,10 @@ public class FollowController {
         Long currentUid = (myUid != null && !myUid.isEmpty()) ? Long.parseLong(myUid) : null;
         return followService.getFollowings(uid, pageNum, pageSize, currentUid);
     }
+
+    @Operation(summary = "获取关注的作者uid列表（内部服务调用）")
+    @GetMapping("/following-uids/{uid}")
+    public ResultData<List<Long>> getFollowingUids(@PathVariable("uid") Long uid) {
+        return ResultData.success(followService.getFollowingUids(uid));
+    }
 }

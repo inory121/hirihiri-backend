@@ -81,7 +81,7 @@ public interface VideoService extends IService<Video> {
      * @param order     排序方式：default-综合排序（相关度）、view-最多播放、date-最新发布、danmaku-最多弹幕、favorite-最多收藏
      * @return ResultData对象
      */
-    ResultData<List<Map<String, Object>>> searchVideos(String keyword, Integer pageNum, Integer pageSize, String order);
+    ResultData<Map<String, Object>> searchVideos(String keyword, Integer pageNum, Integer pageSize, String order);
 
     /**
      * 获取热搜列表
@@ -108,7 +108,7 @@ public interface VideoService extends IService<Video> {
      * @param pageSize 分页大小
      * @return ResultData对象
      */
-    ResultData<List<Map<String, Object>>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize);
+    ResultData<Map<String, Object>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize, String order);
 
     /**
      * 获取用户置顶视频

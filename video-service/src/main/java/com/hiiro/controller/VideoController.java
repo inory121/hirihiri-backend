@@ -137,10 +137,10 @@ public class VideoController {
      */
     @Operation(summary = "搜索视频")
     @GetMapping("/search")
-    public ResultData<List<Map<String, Object>>> searchVideos(@RequestParam("keyword") String keyword,
-                                                              @RequestParam(name = "pageNum", required = false) Integer pageNum,
-                                                              @RequestParam(name = "pageSize", required = false) Integer pageSize,
-                                                              @RequestParam(name = "order", required = false) String order) {
+    public ResultData<Map<String, Object>> searchVideos(@RequestParam("keyword") String keyword,
+                                                         @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                         @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                         @RequestParam(name = "order", required = false) String order) {
         if (keyword == null || keyword.trim().isEmpty() || keyword.length() > 100) {
             return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "搜索词长度必须在1-100字符之间");
         }
@@ -233,10 +233,21 @@ public class VideoController {
      */
     @Operation(summary = "按用户ID获取投稿视频")
     @GetMapping("/user/{uid}")
-    public ResultData<List<Map<String, Object>>> getVideosByUid(@PathVariable("uid") Long uid,
-                                                            @RequestParam(name = "pageNum", required = false) Integer pageNum,
-                                                            @RequestParam(name = "pageSize", required = false) Integer pageSize) {
-        return videoService.getVideosByUid(uid, pageNum, pageSize);
+    public ResultData<Map<String, Object>> getVideosByUid(@PathVariable("uid") Long uid,
+                                                           @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                           @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                           @RequestParam(name = "order", required = false, defaultValue = "date") String order) {
+        return videoService.getVideosByUid(uid, pageNum, pageSize, order);
+    }
+
+    @Operation(summary = "获取用户视频统计数据")
+    @GetMapping("/user/stats/{uid}")
+    public ResultData<Map<String, Object>> getUserVideoStats(@PathVariable("uid") Long uid) {
+        Map<String, Object> stats = videoStatService.getUserVideoStats(uid);
+        if (stats == null) {
+            return ResultData.fail(ResultCodeEnum.NOT_FOUND, "用户不存在或无投稿视频");
+        }
+        return ResultData.success(stats);
     }
 
     @Operation(summary = "获取用户置顶视频")

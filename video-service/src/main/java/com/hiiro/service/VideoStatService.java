@@ -3,6 +3,8 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.VideoStat;
 
+import java.util.Map;
+
 /**
  * <p>
  *  服务类
@@ -20,6 +22,14 @@ public interface VideoStatService extends IService<VideoStat> {
      * @return 视频统计数据
      */
     VideoStat getVideoStatByVid(Long vid);
+
+    /**
+     * 获取用户的视频统计数据汇总（带缓存）
+     *
+     * @param uid 用户ID
+     * @return 统计数据 {totalVideos, totalViews, totalLikes, totalCoins, totalFavorites, totalDanmaku}
+     */
+    Map<String, Object> getUserVideoStats(Long uid);
 
     /**
      * 保存视频统计数据

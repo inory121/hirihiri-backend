@@ -124,4 +124,10 @@ public class Video implements Serializable {
      */
     @Schema(description = "删除时间",name = "delDate")
     private LocalDateTime delDate;
+
+    /**
+     * 热度评分（定时任务更新）
+     */
+    @Schema(description = "热度评分",name = "hotScore")
+    private Double hotScore;
 }

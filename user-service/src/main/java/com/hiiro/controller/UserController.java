@@ -145,11 +145,11 @@ public class UserController {
      */
     @Operation(summary = "搜索用户")
     @GetMapping("/search")
-    public ResultData<List<Map<String, Object>>> searchUsers(@RequestParam("keyword") String keyword,
-                                                              @RequestParam(name = "pageNum", required = false) Integer pageNum,
-                                                              @RequestParam(name = "pageSize", required = false) Integer pageSize,
-                                                              @RequestParam(name = "order", required = false) String order,
-                                                              HttpServletRequest request) {
+    public ResultData<Map<String, Object>> searchUsers(@RequestParam("keyword") String keyword,
+                                                       @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                       @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                       @RequestParam(name = "order", required = false) String order,
+                                                       HttpServletRequest request) {
         if (keyword == null || keyword.trim().isEmpty() || keyword.length() > 50) {
             return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "搜索词长度必须在1-50字符之间");
         }
