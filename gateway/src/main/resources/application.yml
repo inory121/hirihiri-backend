@@ -14,7 +14,11 @@ spring:
         - id: user-route
           uri: lb://user-service
           predicates:
-            - Path=/api/user/**,/api/follow/**
+            - Path=/api/user/**,/api/follow/**,/api/message/**
+        - id: message-ws-route
+          uri: lb:ws://user-service
+          predicates:
+            - Path=/ws/message
         - id: video-route
           uri: lb://video-service
           predicates:
@@ -55,3 +59,4 @@ security:
     - /api/recommend/events
     - /api/recommend/events/**
     - /api/recommend/related/**
+    - /ws/message

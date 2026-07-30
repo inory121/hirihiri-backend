@@ -1,5 +1,6 @@
 package com.hiiro.filter;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.hiiro.entity.User;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.service.impl.UserDetailsImpl;
@@ -16,7 +17,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
-import cn.hutool.core.bean.BeanUtil;
 
 import java.io.IOException;
 import java.util.Optional;

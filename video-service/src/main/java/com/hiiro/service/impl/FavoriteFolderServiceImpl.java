@@ -2,6 +2,7 @@ package com.hiiro.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.hiiro.apis.UserFeignApi;
 import com.hiiro.entity.*;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.FavoriteFolderMapper;
@@ -10,7 +11,6 @@ import com.hiiro.mapper.VideoMapper;
 import com.hiiro.service.CategoryService;
 import com.hiiro.service.FavoriteFolderService;
 import com.hiiro.service.VideoStatService;
-import com.hiiro.apis.UserFeignApi;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +55,7 @@ public class FavoriteFolderServiceImpl implements FavoriteFolderService {
         }
 
         // 批量查询视频
-        List<Video> videos = videoMapper.selectBatchIds(vidList);
+        List<Video> videos = videoMapper.selectByIds(vidList);
         if (videos.isEmpty()) {
             return Collections.emptyList();
         }

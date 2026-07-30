@@ -13,8 +13,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 /**
  * <p>
  * 评论表 前端控制器
@@ -51,6 +49,19 @@ public class CommentController {
         String uidStr = request.getHeader("uid");
         Long currentUid = StringUtils.hasText(uidStr) ? Long.valueOf(uidStr) : null;
         return commentService.getComments(vid, sort, page, pageSize, currentUid);
+    }
+
+    /**
+     * 根据评论ID获取所属评论树（根评论+全部回复）
+     * 用于通知跳转时把目标楼层临时置顶展示
+     */
+    @GetMapping("/tree/{commentId}")
+    @Operation(summary = "根据评论ID获取所属评论树")
+    public ResultData<CommentDTO> getCommentTree(@PathVariable("commentId") Long commentId,
+                                                 HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        Long currentUid = StringUtils.hasText(uidStr) ? Long.valueOf(uidStr) : null;
+        return commentService.getCommentTree(commentId, currentUid);
     }
 
     /**
@@ -97,5 +108,35 @@ public class CommentController {
         }
         Long uid = Long.valueOf(uidStr);
         return commentService.toggleDislike(uid, commentId);
+    }
+
+    /**
+     * 删除评论（软删除，仅评论作者本人可操作）
+     */
+    @Operation(summary = "删除评论")
+    @DeleteMapping("/{commentId}")
+    public ResultData<String> deleteComment(@PathVariable("commentId") Long commentId, HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
+        }
+        Long uid = Long.valueOf(uidStr);
+        return commentService.deleteComment(uid, commentId);
+    }
+
+    /**
+     * 置顶/取消置顶评论（仅视频投稿者可操作，且只能置顶根评论）
+     */
+    @Operation(summary = "置顶/取消置顶评论")
+    @PostMapping("/top/{commentId}/{top}")
+    public ResultData<String> setCommentTop(@PathVariable("commentId") Long commentId,
+                                            @PathVariable("top") Boolean top,
+                                            HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        if (!StringUtils.hasText(uidStr)) {
+            return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "用户未登录");
+        }
+        Long uid = Long.valueOf(uidStr);
+        return commentService.setCommentTop(uid, commentId, top);
     }
 }

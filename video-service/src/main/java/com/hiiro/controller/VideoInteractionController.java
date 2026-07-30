@@ -112,7 +112,7 @@ public class VideoInteractionController {
             @RequestParam(value = "limit", defaultValue = "10") Integer limit,
             @RequestParam(value = "uid", required = false) Long targetUid,
             HttpServletRequest request) {
-        Long uid;
+        long uid;
         if (targetUid != null) {
             // 查询指定用户
             uid = targetUid;
@@ -122,7 +122,7 @@ public class VideoInteractionController {
             if (!StringUtils.hasText(uidStr)) {
                 return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
             }
-            uid = Long.valueOf(uidStr);
+            uid = Long.parseLong(uidStr);
         }
         return videoInteractionService.getRecentCoinVideos(uid, limit);
     }
@@ -136,7 +136,7 @@ public class VideoInteractionController {
             @RequestParam(value = "limit", defaultValue = "10") Integer limit,
             @RequestParam(value = "uid", required = false) Long targetUid,
             HttpServletRequest request) {
-        Long uid;
+        long uid;
         if (targetUid != null) {
             // 查询指定用户
             uid = targetUid;
@@ -146,7 +146,7 @@ public class VideoInteractionController {
             if (!StringUtils.hasText(uidStr)) {
                 return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
             }
-            uid = Long.valueOf(uidStr);
+            uid = Long.parseLong(uidStr);
         }
         return videoInteractionService.getRecentLikeVideos(uid, limit);
     }

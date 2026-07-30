@@ -40,7 +40,7 @@ public class FavoriteFolderController {
             @RequestParam(value = "vid", required = false) Long vid,
             @RequestParam(value = "uid", required = false) Long targetUid,
             HttpServletRequest request) {
-        Long uid;
+        long uid;
         boolean isOwner;
         if (targetUid != null) {
             // 查询指定用户的公开收藏夹（不执行初始化逻辑）
@@ -52,7 +52,7 @@ public class FavoriteFolderController {
             if (!StringUtils.hasText(uidStr)) {
                 return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
             }
-            uid = Long.valueOf(uidStr);
+            uid = Long.parseLong(uidStr);
             isOwner = true;
         }
         return favoriteFolderService.getUserFolders(uid, vid, isOwner);
@@ -162,7 +162,7 @@ public class FavoriteFolderController {
             @RequestParam(value = "limit", defaultValue = "10") Integer limit,
             @RequestParam(value = "uid", required = false) Long targetUid,
             HttpServletRequest request) {
-        Long uid;
+        long uid;
         if (targetUid != null) {
             // 查询指定用户
             uid = targetUid;
@@ -172,7 +172,7 @@ public class FavoriteFolderController {
             if (!StringUtils.hasText(uidStr)) {
                 return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
             }
-            uid = Long.valueOf(uidStr);
+            uid = Long.parseLong(uidStr);
         }
         return favoriteFolderService.getRecentFavorites(uid, limit);
     }

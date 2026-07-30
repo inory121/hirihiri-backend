@@ -1,19 +1,17 @@
 package com.hiiro.service.impl;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.hiiro.apis.UserFeignApi;
 import com.hiiro.entity.*;
+import com.hiiro.entity.dto.MessageNoticeCreateDTO;
 import com.hiiro.entity.dto.UserDTO;
-import com.hiiro.mapper.FavoriteFolderMapper;
-import com.hiiro.mapper.VideoCoinMapper;
-import com.hiiro.mapper.VideoCollectMapper;
-import com.hiiro.mapper.VideoDislikeMapper;
-import com.hiiro.mapper.VideoLikeMapper;
-import com.hiiro.mapper.VideoMapper;
+import com.hiiro.mapper.*;
 import com.hiiro.service.CategoryService;
 import com.hiiro.service.VideoInteractionService;
 import com.hiiro.service.VideoStatService;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +25,7 @@ import java.util.stream.Collectors;
  * @author hiiro
  * @since 2025-06-23
  */
+@Slf4j
 @Service
 public class VideoInteractionServiceImpl implements VideoInteractionService {
 
@@ -73,6 +72,16 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
                             .eq(VideoLike::getVid, vid)
             );
             videoStatService.decrementLike(vid);
+            // 取消点赞同步删除对应的点赞通知（失败不影响取消点赞主流程）
+            try {
+                Video video = videoMapper.selectById(vid);
+                Long authorUid = video != null ? video.getUid() : null;
+                if (authorUid != null && !Objects.equals(authorUid, uid)) {
+                    userFeignApi.deleteInternalNotice(authorUid, uid, "like", "video", vid);
+                }
+            } catch (Exception e) {
+                log.warn("点赞通知删除失败: {}", e.getMessage());
+            }
             return ResultData.success("取消点赞");
         } else {
             VideoLike videoLike = new VideoLike();
@@ -81,6 +90,25 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
             videoLike.setCreateTime(LocalDateTime.now());
             videoLikeMapper.insert(videoLike);
             videoStatService.incrementLike(vid);
+
+            // 生成点赞通知（失败不影响点赞主流程）
+            try {
+                Video video = videoMapper.selectById(vid);
+                Long authorUid = video != null ? video.getUid() : null;
+                if (authorUid != null && !Objects.equals(authorUid, uid)) {
+                    MessageNoticeCreateDTO noticeDTO = new MessageNoticeCreateDTO();
+                    noticeDTO.setReceiveUid(authorUid);
+                    noticeDTO.setActorUid(uid);
+                    noticeDTO.setNoticeType("like");
+                    noticeDTO.setBizType("video");
+                    noticeDTO.setBizId(vid);
+                    noticeDTO.setContentSummary(null);
+                    noticeDTO.setExtJson(buildVideoExtJson(vid));
+                    userFeignApi.createInternalNotice(noticeDTO);
+                }
+            } catch (Exception e) {
+                log.warn("点赞通知生成失败: {}", e.getMessage());
+            }
 
             // 点赞时取消点踩
             VideoDislike disliked = videoDislikeMapper.selectOne(
@@ -99,6 +127,20 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
 
             return ResultData.success("点赞成功");
         }
+    }
+
+    /**
+     * 构建点赞通知扩展 JSON：塞入视频ID（用于跳转）与封面/标题（用于列表直接展示，避免前端二次查视频）
+     */
+    private String buildVideoExtJson(Long vid) {
+        if (vid == null) return null;
+        Video video = videoMapper.selectById(vid);
+        if (video == null) return null;
+        JSONObject ext = new JSONObject();
+        ext.put("videoId", vid);
+        if (video.getCoverUrl() != null) ext.put("videoCover", video.getCoverUrl());
+        if (video.getTitle() != null) ext.put("videoTitle", video.getTitle());
+        return ext.toJSONString();
     }
 
     @Override
@@ -289,7 +331,7 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
             return Collections.emptyList();
         }
 
-        List<Video> videos = videoMapper.selectBatchIds(vidList);
+        List<Video> videos = videoMapper.selectByIds(vidList);
         if (videos.isEmpty()) {
             return Collections.emptyList();
         }

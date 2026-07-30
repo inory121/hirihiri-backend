@@ -1,13 +1,11 @@
 package com.hiiro.service.fallback;
 
 import com.alibaba.csp.sentinel.slots.block.BlockException;
-import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Component

@@ -1,5 +1,6 @@
 package com.hiiro.entity.dto;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -66,6 +67,12 @@ public class CommentDTO implements Serializable {
      */
     @Schema(description = "评论内容", name = "content")
     private String content;
+
+    /**
+     * 评论内容中 @ 的用户列表（uid→用户名/头像），前端据此零请求渲染可点击 @提及
+     */
+    @Schema(description = "评论中@的用户列表", name = "mentionUsers")
+    private List<JSONObject> mentionUsers;
 
     /**
      * 点赞数

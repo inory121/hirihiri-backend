@@ -3,7 +3,6 @@ package com.hiiro.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
-import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
 

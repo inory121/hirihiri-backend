@@ -3,9 +3,10 @@ package com.hiiro.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hiiro.apis.UserFeignApi;
 import com.hiiro.entity.*;
-import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.dto.RecommendFeedDTO;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.*;
@@ -14,8 +15,6 @@ import com.hiiro.service.RecommendService;
 import com.hiiro.service.cache.UserCacheService;
 import com.hiiro.service.cache.VideoStatCacheService;
 import com.hiiro.utils.RedisUtil;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -119,7 +118,7 @@ public class RecommendServiceImpl implements RecommendService {
             Map<Long, Video> videoMap;
             Map<Long, VideoStat> statMap;
             String requestId;
-            String cacheKey = null;
+            String cacheKey;
 
             if (cursor != null && !cursor.isEmpty()) {
                 // 翻页：从 Redis 缓存读取上次计算的候选集
@@ -574,7 +573,8 @@ public class RecommendServiceImpl implements RecommendService {
             if (json == null || json.isEmpty()) {
                 return null;
             }
-            return feedCacheMapper.readValue(json, new TypeReference<FeedCache>() {});
+            return feedCacheMapper.readValue(json, new TypeReference<>() {
+            });
         } catch (Exception e) {
             log.warn("读取推荐缓存失败, key={}", key, e);
             return null;

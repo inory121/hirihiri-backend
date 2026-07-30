@@ -9,6 +9,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -81,4 +82,10 @@ public class VideoStat implements Serializable {
      */
     @Schema(description = "点踩数",name = "dislike")
     private Integer dislike;
+
+    /**
+     * 互动更新时间（热度任务用于增量筛选）
+     */
+    @Schema(description = "互动更新时间", name = "updateTime")
+    private LocalDateTime updateTime;
 }

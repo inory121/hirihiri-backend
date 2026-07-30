@@ -131,11 +131,6 @@ public class VideoUploadServiceImpl implements VideoUploadService {
             baseName = originalFilename.substring(0, originalFilename.lastIndexOf(".")) + fileExtension;
         }
 
-        // 移除非安全字符（可选）
-//        String safeBaseName = baseName.replaceAll("[^\\u4e00-\\u9fa5a-zA-Z0-9\\s\\-_()]", "_");
-
-        // 构建安全文件名：原始基础名 + UUID + 扩展名
-//        String safeFileName = baseName + "_" + UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10) + fileExtension;
         FileValidationUtils.validateMagicNumber(coverFile, fileExtension);
         // 构建路径并上传
         String coverPath = generateStoragePath(date, uid, "cover", baseName);

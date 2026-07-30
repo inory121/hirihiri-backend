@@ -207,7 +207,7 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
                 .list()
                 .stream()
                 .map(Follow::getFollowingUid)
-                .collect(Collectors.toList());
+                .toList();
 
         // 填充isFollowing字段
         for (UserDTO user : users) {

@@ -112,6 +112,20 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
     }
 
     @Override
+    public void decrementReply(Long vid) {
+        decrementBySql(vid, "reply");
+    }
+
+    @Override
+    public void decrementReply(Long vid, int count) {
+        if (count <= 0) return;
+        int updated = videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
+                .eq(VideoStat::getVid, vid)
+                .setSql("reply = GREATEST(0, reply - " + count + ")"));
+        clearUserStatsCache(vid);
+    }
+
+    @Override
     public int incrementDanmaku(Long vid) {
         return incrementBySql(vid, "danmaku");
     }

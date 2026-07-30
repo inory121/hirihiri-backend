@@ -46,6 +46,20 @@ public interface VideoStatService extends IService<VideoStat> {
      */
     int incrementReply(Long vid);
     /**
+     * 视频的回复数-1
+     *
+     * @param vid 视频ID
+     */
+    void decrementReply(Long vid);
+
+    /**
+     * 视频的回复数-N（用于级联删除评论时批量扣减）
+     *
+     * @param vid   视频ID
+     * @param count 扣减数量
+     */
+    void decrementReply(Long vid, int count);
+    /**
      * 视频的弹幕数+1
      *
      * @param vid 视频ID

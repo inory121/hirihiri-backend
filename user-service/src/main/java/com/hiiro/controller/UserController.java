@@ -3,7 +3,6 @@ package com.hiiro.controller;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
-import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.service.UserService;
@@ -103,6 +102,16 @@ public class UserController {
     @GetMapping("/info/{uid}")
     public ResultData<UserDTO> getUserByUid(@PathVariable("uid") Long uid) {
         UserDTO userDTO = userService.getUserByUid(uid);
+        if (userDTO != null) {
+            return ResultData.success(userDTO);
+        }
+        return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+    }
+
+    @Operation(summary = "通过用户名获取用户DTO")
+    @GetMapping("/by-username/{username}")
+    public ResultData<UserDTO> getUserByUsername(@PathVariable("username") String username) {
+        UserDTO userDTO = userService.getUserByUsername(username);
         if (userDTO != null) {
             return ResultData.success(userDTO);
         }
