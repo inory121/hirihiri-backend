@@ -90,9 +90,14 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
     }
 
     private int incrementBySql(Long vid, String column) {
+        return incrementBySql(vid, column, 1);
+    }
+
+    private int incrementBySql(Long vid, String column, int count) {
+        if (count <= 0) return 0;
         int updated = videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
                 .eq(VideoStat::getVid, vid)
-                .setSql(column + " = " + column + " + 1"));
+                .setSql(column + " = " + column + " + " + count));
         if (updated == 0) {
             try {
                 saveVideoStat(vid);
@@ -100,7 +105,7 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
             }
             videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
                     .eq(VideoStat::getVid, vid)
-                    .setSql(column + " = " + column + " + 1"));
+                    .setSql(column + " = " + column + " + " + count));
         }
         clearUserStatsCache(vid);
         return updated > 0 ? updated : 1;
@@ -151,8 +156,18 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
     }
 
     @Override
+    public void incrementCoin(Long vid, int count) {
+        incrementBySql(vid, "coin", count);
+    }
+
+    @Override
     public void decrementCoin(Long vid) {
         decrementBySql(vid, "coin");
+    }
+
+    @Override
+    public void decrementCoin(Long vid, int count) {
+        decrementBySql(vid, "coin", count);
     }
 
     @Override
@@ -176,9 +191,14 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
     }
 
     private int decrementBySql(Long vid, String column) {
+        return decrementBySql(vid, column, 1);
+    }
+
+    private int decrementBySql(Long vid, String column, int count) {
+        if (count <= 0) return 0;
         int updated = videoStatMapper.update(new LambdaUpdateWrapper<VideoStat>()
                 .eq(VideoStat::getVid, vid)
-                .setSql(column + " = " + column + " - 1"));
+                .setSql(column + " = GREATEST(0, " + column + " - " + count + ")"));
         clearUserStatsCache(vid);
         return updated;
     }

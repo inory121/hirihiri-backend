@@ -204,6 +204,22 @@ public class VideoController {
 
         if (isNew) {
             videoStatService.incrementPlay(vid);
+
+            // 观看经验奖励：同一用户每天首次有效播放发放一次
+            // 普通用户 5 点，大会员 10 点（大会员观看奖励）
+            if (uid != null && !uid.isEmpty()) {
+                try {
+                    Long uidLong = Long.parseLong(uid);
+                    ResultData<UserDTO> userResult = userFeignApi.getUserByUid(uidLong);
+                    if (userResult != null && userResult.getData() != null) {
+                        Byte vip = userResult.getData().getVip();
+                        boolean isVip = vip != null && vip > 0;
+                        userFeignApi.addExp(uidLong, isVip ? "vip_watch" : "watch", isVip ? 10 : 5);
+                    }
+                } catch (Exception e) {
+                    log.warn("观看经验发放失败: {}", e.getMessage());
+                }
+            }
         }
 
         return ResultData.success(isNew, "播放量上报成功");

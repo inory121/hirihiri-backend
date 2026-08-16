@@ -50,6 +50,21 @@ public class UserFeignFallbackFactory implements FallbackFactory<UserFeignApi> {
             public ResultData<String> deleteNoticeByBizIds(List<Long> bizIds) {
                 return ResultData.fail(ResultCodeEnum.TOO_MANY_REQUESTS, "消息服务不可用");
             }
+
+            @Override
+            public ResultData<String> addCoin(Long uid, Double amount) {
+                return ResultData.fail(ResultCodeEnum.TOO_MANY_REQUESTS, "用户服务不可用，硬币操作失败");
+            }
+
+            @Override
+            public ResultData<Integer> addCoinExp(Long uid, Integer requestedGain) {
+                return ResultData.fail(ResultCodeEnum.TOO_MANY_REQUESTS, "用户服务不可用，经验值操作失败");
+            }
+
+            @Override
+            public ResultData<Integer> addExp(Long uid, String type, Integer amount) {
+                return ResultData.fail(ResultCodeEnum.TOO_MANY_REQUESTS, "用户服务不可用，经验值操作失败");
+            }
         };
     }
 }

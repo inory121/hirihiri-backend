@@ -96,11 +96,27 @@ public interface VideoStatService extends IService<VideoStat> {
     void incrementCoin(Long vid);
 
     /**
+     * 视频的投币数+N
+     *
+     * @param vid   视频ID
+     * @param count 增加数量
+     */
+    void incrementCoin(Long vid, int count);
+
+    /**
      * 视频的投币数-1
      *
      * @param vid 视频ID
      */
     void decrementCoin(Long vid);
+
+    /**
+     * 视频的投币数-N
+     *
+     * @param vid   视频ID
+     * @param count 扣减数量
+     */
+    void decrementCoin(Long vid, int count);
 
     /**
      * 视频的收藏数+1

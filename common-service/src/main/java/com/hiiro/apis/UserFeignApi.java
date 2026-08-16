@@ -43,4 +43,37 @@ public interface UserFeignApi {
     @PostMapping("/api/message/internal/notice/delete-by-biz-ids")
     ResultData<String> deleteNoticeByBizIds(@RequestBody List<Long> bizIds);
 
+    /**
+     * 增加/减少用户硬币
+     *
+     * @param uid    用户id
+     * @param amount 变化数量（正数增加，负数减少）
+     * @return {@link ResultData}<{@link String}>
+     */
+    @PostMapping("/api/user/coin/add")
+    ResultData<String> addCoin(@RequestParam("uid") Long uid, @RequestParam("amount") Double amount);
+
+    /**
+     * 增加投币经验值（每日上限50）
+     *
+     * @param uid           用户id
+     * @param requestedGain 请求增加的经验值
+     * @return {@link ResultData}<{@link Integer}> 实际增加量
+     */
+    @PostMapping("/api/user/coin/exp/add")
+    ResultData<Integer> addCoinExp(@RequestParam("uid") Long uid, @RequestParam("requestedGain") Integer requestedGain);
+
+    /**
+     * 增加经验值（按来源类型每日幂等，每天每类只发一次）
+     *
+     * @param uid    用户id
+     * @param type   经验来源类型：login / watch / vip_watch / share / coin
+     * @param amount 本次发放经验值
+     * @return {@link ResultData}<{@link Integer}> 实际增加量（已发过则返回0）
+     */
+    @PostMapping("/api/user/exp/add")
+    ResultData<Integer> addExp(@RequestParam("uid") Long uid,
+                               @RequestParam("type") String type,
+                               @RequestParam("amount") Integer amount);
+
 }

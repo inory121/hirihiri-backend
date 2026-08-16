@@ -36,6 +36,12 @@ public class VideoCoin implements Serializable {
     private Long vid;
 
     /**
+     * 投币数量（1或2）
+     */
+    @Schema(description = "投币数量（1或2）", name = "count")
+    private Integer count;
+
+    /**
      * 投币时间
      */
     @Schema(description = "投币时间", name = "createTime")

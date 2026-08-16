@@ -2,6 +2,7 @@ package com.hiiro.service.impl;
 
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.hiiro.apis.UserFeignApi;
 import com.hiiro.entity.*;
 import com.hiiro.entity.dto.MessageNoticeCreateDTO;
@@ -189,30 +190,73 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
 
     @Override
     @Transactional
-    public ResultData<String> toggleCoin(Long uid, Long vid) {
+    public ResultData<String> toggleCoin(Long uid, Long vid, Integer count) {
+        // 每次投币固定 1 币（B站规则：单个用户对单个视频最多投 2 币，可分次投）
+        if (count == null || count != 1) {
+            count = 1;
+        }
+
+        Video video = videoMapper.selectById(vid);
+        if (video == null) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "视频不存在");
+        }
+        Long authorUid = video.getUid();
+
+        // 自己不能给自己投币
+        if (Objects.equals(authorUid, uid)) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "UP主不能给自己投币");
+        }
+
         VideoCoin existing = videoCoinMapper.selectOne(
                 new LambdaQueryWrapper<VideoCoin>()
                         .eq(VideoCoin::getUid, uid)
                         .eq(VideoCoin::getVid, vid)
         );
+        int alreadyCoined = existing == null || existing.getCount() == null ? 0 : existing.getCount();
 
-        if (existing != null) {
-            videoCoinMapper.delete(
-                    new LambdaQueryWrapper<VideoCoin>()
-                            .eq(VideoCoin::getUid, uid)
-                            .eq(VideoCoin::getVid, vid)
-            );
-            videoStatService.decrementCoin(vid);
-            return ResultData.success("取消投币");
-        } else {
+        // 已投满 2 币（单个用户对单个视频最多 2 币）
+        if (alreadyCoined >= 2) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "对本稿件的投币枚数已用完");
+        }
+
+        // 检查观众硬币余额
+        ResultData<UserDTO> userResult = userFeignApi.getUserByUid(uid);
+        if (userResult == null || userResult.getData() == null) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "获取用户信息失败");
+        }
+        UserDTO userDTO = userResult.getData();
+        if (userDTO.getCoin() == null || userDTO.getCoin() < count) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "硬币不足");
+        }
+
+        // 投币：累计记录、增加视频统计、扣除观众硬币、UP主获得10%奖励、观众获得投币经验
+        if (existing == null) {
             VideoCoin videoCoin = new VideoCoin();
             videoCoin.setUid(uid);
             videoCoin.setVid(vid);
+            videoCoin.setCount(count);
             videoCoin.setCreateTime(LocalDateTime.now());
             videoCoinMapper.insert(videoCoin);
-            videoStatService.incrementCoin(vid);
-            return ResultData.success("投币成功");
+        } else {
+            // 已投过 1 币，再投 1 币则累加（video_coin 为 (uid,vid) 复合主键，updateById 不可用，改用条件更新）
+            videoCoinMapper.update(null,
+                    new LambdaUpdateWrapper<VideoCoin>()
+                            .eq(VideoCoin::getUid, uid)
+                            .eq(VideoCoin::getVid, vid)
+                            .set(VideoCoin::getCount, alreadyCoined + count));
         }
+        videoStatService.incrementCoin(vid, count);
+        ResultData<String> viewerCoinResult = userFeignApi.addCoin(uid, -count.doubleValue());
+        ResultData<String> authorCoinResult = userFeignApi.addCoin(authorUid, count * 0.1);
+        log.info("[投币] uid={} 扣币{} -> code={} msg={}; authorUid={} 加币{} -> code={} msg={}",
+                uid, -count, viewerCoinResult == null ? "null" : viewerCoinResult.getCode(),
+                viewerCoinResult == null ? "null" : viewerCoinResult.getMessage(),
+                authorUid, count * 0.1,
+                authorCoinResult == null ? "null" : authorCoinResult.getCode(),
+                authorCoinResult == null ? "null" : authorCoinResult.getMessage());
+        // 投币经验：1币=10经验，每日上限50
+        userFeignApi.addCoinExp(uid, count * 10);
+        return ResultData.success("投币成功");
     }
 
     @Override
@@ -294,7 +338,7 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
     }
 
     @Override
-    public ResultData<Boolean[]> getInteractionStatus(Long uid, Long vid) {
+    public ResultData<Object[]> getInteractionStatus(Long uid, Long vid) {
         boolean liked = videoLikeMapper.selectOne(
                 new LambdaQueryWrapper<VideoLike>()
                         .eq(VideoLike::getUid, uid)
@@ -307,11 +351,13 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
                         .eq(VideoDislike::getVid, vid)
         ) != null;
 
-        boolean coined = videoCoinMapper.selectOne(
+        // 已投币数（0/1/2），用于前端判断剩余可投数量
+        VideoCoin coinRecord = videoCoinMapper.selectOne(
                 new LambdaQueryWrapper<VideoCoin>()
                         .eq(VideoCoin::getUid, uid)
                         .eq(VideoCoin::getVid, vid)
-        ) != null;
+        );
+        int coinCount = coinRecord == null || coinRecord.getCount() == null ? 0 : coinRecord.getCount();
 
         // 检查视频是否在任意收藏夹中
         boolean favorited = videoCollectMapper.selectCount(
@@ -320,7 +366,8 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
                         .eq(VideoCollect::getVid, vid)
         ) > 0;
 
-        return ResultData.success(new Boolean[]{liked, disliked, coined, favorited});
+        // 数组：liked, disliked, coinCount(已投币数), favorited
+        return ResultData.success(new Object[]{liked, disliked, coinCount, favorited});
     }
 
     /**

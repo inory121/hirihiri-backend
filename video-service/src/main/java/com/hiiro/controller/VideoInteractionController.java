@@ -62,13 +62,15 @@ public class VideoInteractionController {
      */
     @Operation(summary = "投币/取消投币")
     @PostMapping("/coin/{vid}")
-    public ResultData<String> toggleCoin(@PathVariable("vid") Long vid, HttpServletRequest request) {
+    public ResultData<String> toggleCoin(@PathVariable("vid") Long vid,
+                                         @RequestParam(name = "count", required = false, defaultValue = "1") Integer count,
+                                         HttpServletRequest request) {
         String uidStr = request.getHeader("uid");
         if (!StringUtils.hasText(uidStr)) {
             return ResultData.fail(ResultCodeEnum.UNAUTHORIZED, "未登录");
         }
         Long uid = Long.valueOf(uidStr);
-        return videoInteractionService.toggleCoin(uid, vid);
+        return videoInteractionService.toggleCoin(uid, vid, count);
     }
 
     /**
@@ -93,11 +95,11 @@ public class VideoInteractionController {
      */
     @Operation(summary = "获取互动状态")
     @GetMapping("/status/{vid}")
-    public ResultData<Boolean[]> getInteractionStatus(@PathVariable("vid") Long vid, HttpServletRequest request) {
+    public ResultData<Object[]> getInteractionStatus(@PathVariable("vid") Long vid, HttpServletRequest request) {
         String uidStr = request.getHeader("uid");
         if (!StringUtils.hasText(uidStr)) {
-            // 未登录返回全部 false
-            return ResultData.success(new Boolean[]{false, false, false, false});
+            // 未登录返回全部 false，已投币数为 0
+            return ResultData.success(new Object[]{false, false, 0, false});
         }
         Long uid = Long.valueOf(uidStr);
         return videoInteractionService.getInteractionStatus(uid, vid);

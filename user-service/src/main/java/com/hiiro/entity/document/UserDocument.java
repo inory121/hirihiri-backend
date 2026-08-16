@@ -1,6 +1,7 @@
 package com.hiiro.entity.document;
 
 import lombok.Data;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.*;
 
 /**
@@ -11,6 +12,7 @@ import org.springframework.data.elasticsearch.annotations.*;
 @Data
 public class UserDocument {
 
+    @Id
     @Field(type = FieldType.Long)
     private Long uid; // 用户ID
 

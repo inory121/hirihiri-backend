@@ -121,4 +121,39 @@ public interface UserService extends IService<User> {
      * @return ResultData对象
      */
     ResultData<Map<String, Object>> searchUsers(String keyword, Integer pageNum, Integer pageSize, String order, Long currentUid);
+
+    /**
+     * 增加/减少用户硬币
+     *
+     * @param uid    用户id
+     * @param amount 变化数量（正数增加，负数减少）
+     * @return ResultData对象
+     */
+    ResultData<String> addCoin(Long uid, Double amount);
+
+    /**
+     * 增加投币经验值（每日上限50，返回实际增加量）
+     *
+     * @param uid          用户id
+     * @param requestedGain 请求增加的经验值
+     * @return 实际增加的经验值
+     */
+    ResultData<Integer> addCoinExp(Long uid, Integer requestedGain);
+
+    /**
+     * 增加经验值（按来源类型每日幂等，每天每类只发一次）
+     *
+     * @param uid    用户id
+     * @param type   经验来源类型：login / watch / vip_watch / share / coin
+     * @param amount 本次发放经验值
+     * @return 实际增加的经验值（当天该类型已发过则返回0）
+     */
+    ResultData<Integer> addExp(Long uid, String type, Integer amount);
+
+    /**
+     * 每日登录自动发放 +1 硬币（Lv1+ 用户每天限一次）
+     *
+     * @param uid 用户id
+     */
+    void grantDailyLoginCoin(Long uid);
 }

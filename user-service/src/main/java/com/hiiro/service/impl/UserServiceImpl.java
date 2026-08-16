@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch._types.SortOrder;
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -12,11 +13,15 @@ import com.hiiro.entity.Follow;
 import com.hiiro.entity.ResultCodeEnum;
 import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
+import com.hiiro.entity.UserExpDaily;
+import com.hiiro.entity.UserDailyCoin;
 import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.FollowMapper;
+import com.hiiro.mapper.UserExpDailyMapper;
 import com.hiiro.mapper.UserDTOMapper;
+import com.hiiro.mapper.UserDailyCoinMapper;
 import com.hiiro.mapper.UserMapper;
 import com.hiiro.service.UserService;
 import com.hiiro.utils.MyJwtUtil;
@@ -35,6 +40,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 /**
@@ -60,6 +67,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     private UserDTOMapper userDTOMapper;
+
+    @Resource
+    private UserDailyCoinMapper userDailyCoinMapper;
+
+    @Resource
+    private UserExpDailyMapper userExpDailyMapper;
 
     @Resource
     private FollowMapper followMapper;
@@ -151,12 +164,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Long uid = loginUser.getUser().getUid();
         // 创建默认的JWT令牌，其中包含用户的UID作为声明的一部分
         String token = jwtUtil.createDefaultJwtToken(new HashMap<>(Map.of("uid", uid)));
+        // Lv1+ 用户每日登录自动发放 +1 硬币（与经验解耦，互不影响）
+        grantDailyLoginCoin(uid);
+        // 登录经验奖励：每天一次固定 5 点，与等级/是否领币无关，由 addExp 按 login 类型幂等保证
+        try {
+            addExp(uid, "login", 5);
+        } catch (Exception e) {
+            log.warn("登录经验发放失败: {}", e.getMessage());
+        }
         // 登陆成功后将用户DTO（不含密码等敏感信息）存入redis
-        redisUtil.setWithDefaultExpire("user:" + uid, JSON.toJSONString(getUserByUid(uid)));
+        UserDTO currentUser = getUserByUid(uid);
+        redisUtil.setWithDefaultExpire("user:" + uid, JSON.toJSONString(currentUser));
         // 返回token和用户信息给前端
         return ResultData.success(
                 new HashMap<>(
-                        Map.of("user", getUserByUid(uid), "token", token)),
+                        Map.of("user", currentUser, "token", token)),
                 "登陆成功!");
 
     }
@@ -535,6 +557,173 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
         }
         return 1;
+    }
+
+    /**
+     * 增加/减少用户硬币
+     *
+     * @param uid    用户id
+     * @param amount 变化数量（正数增加，负数减少）
+     * @return ResultData对象
+     */
+    @Transactional
+    @Override
+    public ResultData<String> addCoin(Long uid, Double amount) {
+        if (uid == null || amount == null) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "参数错误");
+        }
+        User user = userMapper.selectById(uid);
+        if (user == null) {
+            return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+        }
+        double currentCoin = user.getCoin() == null ? 0.0 : user.getCoin();
+        user.setCoin(currentCoin + amount);
+        userMapper.updateById(user);
+        syncUserToEsAndEvictCache(user);
+        return ResultData.success("硬币更新成功");
+    }
+
+    /**
+     * 每日登录自动发放 +1 硬币（Lv1+ 每天限一次）
+     *
+     * @param uid 用户id
+     */
+    @Transactional
+    public void grantDailyLoginCoin(Long uid) {
+        User user = userMapper.selectById(uid);
+        if (user == null) {
+            return;
+        }
+        // Lv0（经验值 < 200）不发放
+        Integer exp = user.getExp();
+        if (exp == null || exp < 200) {
+            return;
+        }
+        LocalDate today = LocalDate.now();
+        UserDailyCoin existing = userDailyCoinMapper.selectOne(
+                Wrappers.<UserDailyCoin>lambdaQuery()
+                        .eq(UserDailyCoin::getUid, uid)
+                        .eq(UserDailyCoin::getDate, today)
+        );
+        if (existing != null) {
+            return;
+        }
+        UserDailyCoin daily = new UserDailyCoin();
+        daily.setUid(uid);
+        daily.setDate(today);
+        daily.setGranted(1);
+        daily.setCreateTime(LocalDateTime.now());
+        userDailyCoinMapper.insert(daily);
+
+        double currentCoin = user.getCoin() == null ? 0.0 : user.getCoin();
+        user.setCoin(currentCoin + 1.0);
+        userMapper.updateById(user);
+        syncUserToEsAndEvictCache(user);
+    }
+
+    /**
+     * 增加经验值（按来源类型每日幂等，每天每类只发一次）
+     *
+     * @param uid    用户id
+     * @param type   经验来源类型：login / watch / vip_watch / share / coin
+     * @param amount 本次发放经验值
+     * @return 实际增加的经验值（当天该类型已发过则返回 0）
+     */
+    @Transactional
+    @Override
+    public ResultData<Integer> addExp(Long uid, String type, Integer amount) {
+        if (uid == null || type == null || type.isEmpty() || amount == null || amount <= 0) {
+            return ResultData.success(0);
+        }
+        LocalDate today = LocalDate.now();
+        UserExpDaily existing = userExpDailyMapper.selectOne(
+                Wrappers.<UserExpDaily>lambdaQuery()
+                        .eq(UserExpDaily::getUid, uid)
+                        .eq(UserExpDaily::getDate, today)
+                        .eq(UserExpDaily::getExpType, type)
+        );
+        // 当天该来源已发放过，直接返回 0（每日只加一次）
+        if (existing != null) {
+            return ResultData.success(0);
+        }
+        User user = userMapper.selectById(uid);
+        if (user == null) {
+            return ResultData.success(0);
+        }
+        int exp = user.getExp() == null ? 0 : user.getExp();
+        user.setExp(exp + amount);
+        userMapper.updateById(user);
+        syncUserToEsAndEvictCache(user);
+
+        UserExpDaily daily = new UserExpDaily();
+        daily.setUid(uid);
+        daily.setDate(today);
+        daily.setExpType(type);
+        daily.setExpGain(amount);
+        daily.setCreateTime(LocalDateTime.now());
+        userExpDailyMapper.insert(daily);
+        return ResultData.success(amount);
+    }
+
+    /**
+     * 同步用户到 ES 并清理 Redis 缓存
+     *
+     * @param user User实体
+     */
+    private void syncUserToEsAndEvictCache(User user) {
+        UserDocument userDocument = new UserDocument();
+        BeanUtil.copyProperties(user, userDocument);
+        esOperations.save(userDocument);
+        redisUtil.delete("user:" + user.getUid());
+    }
+
+    /**
+     * 增加投币经验值（每日上限50）
+     *
+     * @param uid           用户id
+     * @param requestedGain 请求增加的经验值
+     * @return 实际增加的经验值
+     */
+    @Transactional
+    @Override
+    public ResultData<Integer> addCoinExp(Long uid, Integer requestedGain) {
+        if (uid == null || requestedGain == null || requestedGain <= 0) {
+            return ResultData.success(0);
+        }
+        LocalDate today = LocalDate.now();
+        UserExpDaily daily = userExpDailyMapper.selectOne(
+                Wrappers.<UserExpDaily>lambdaQuery()
+                        .eq(UserExpDaily::getUid, uid)
+                        .eq(UserExpDaily::getDate, today)
+                        .eq(UserExpDaily::getExpType, "coin")
+        );
+        int used = daily == null ? 0 : (daily.getExpGain() == null ? 0 : daily.getExpGain());
+        int cap = 50;
+        int gain = Math.min(requestedGain, Math.max(0, cap - used));
+        if (gain > 0) {
+            User user = userMapper.selectById(uid);
+            if (user != null) {
+                int exp = user.getExp() == null ? 0 : user.getExp();
+                user.setExp(exp + gain);
+                userMapper.updateById(user);
+                syncUserToEsAndEvictCache(user);
+            }
+            if (daily == null) {
+                daily = new UserExpDaily();
+                daily.setUid(uid);
+                daily.setDate(today);
+                daily.setExpType("coin");
+                daily.setExpGain(gain);
+                daily.setCreateTime(LocalDateTime.now());
+                daily.setUpdateTime(LocalDateTime.now());
+                userExpDailyMapper.insert(daily);
+            } else {
+                daily.setExpGain(used + gain);
+                daily.setUpdateTime(LocalDateTime.now());
+                userExpDailyMapper.updateById(daily);
+            }
+        }
+        return ResultData.success(gain);
     }
 
 }

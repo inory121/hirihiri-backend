@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +26,7 @@ import java.util.Map;
  * @author hiiro
  * @since 2025-01-29
  */
+@Slf4j
 @Tag(name = "用户信息管理")
 @RestController
 @RequestMapping("/api/user")
@@ -80,6 +82,16 @@ public class UserController {
     @Operation(summary = "获取单个用户信息")
     @GetMapping("/info")
     public ResultData<UserDTO> getUserInfo(@RequestHeader("uid") String uid) {
+        Long uidLong = Long.valueOf(uid);
+        // 每日登录奖励：已登录用户刷新页面/活跃时触发，由各自表按日幂等保证只发一次
+        try {
+            // Lv1+ 用户每日 +1 硬币（含等级门槛，失败不影响主流程）
+            userService.grantDailyLoginCoin(uidLong);
+            // 每日登录经验 +5（无等级门槛）
+            userService.addExp(uidLong, "login", 5);
+        } catch (Exception e) {
+            log.warn("每日登录奖励发放失败: {}", e.getMessage());
+        }
         return userService.getUserInfo(uid);
     }
 
@@ -129,6 +141,51 @@ public class UserController {
     public ResultData<List<UserDTO>> getUserPage(@RequestParam(name = "pageNum", required = false) Integer pageNum,
                                                  @RequestParam(name = "pageSize", required = false) Integer pageSize) {
         return userService.getUserPage(pageNum, pageSize);
+    }
+
+    /**
+     * 增加/减少用户硬币
+     *
+     * @param uid    用户id
+     * @param amount 变化数量（正数增加，负数减少）
+     * @return ResultData对象
+     */
+    @Operation(summary = "增加/减少用户硬币")
+    @PostMapping("/coin/add")
+    @PreAuthorize("@accessControl.isInternalRequest()")
+    public ResultData<String> addCoin(@RequestParam("uid") Long uid,
+                                      @RequestParam("amount") Double amount) {
+        return userService.addCoin(uid, amount);
+    }
+
+    /**
+     * 增加投币经验值（每日上限50）
+     *
+     * @param uid           用户id
+     * @param requestedGain 请求增加的经验值
+     * @return ResultData对象
+     */
+    @Operation(summary = "增加投币经验值（每日上限50）")
+    @PostMapping("/coin/exp/add")
+    @PreAuthorize("@accessControl.isInternalRequest()")
+    public ResultData<Integer> addCoinExp(@RequestParam("uid") Long uid,
+                                          @RequestParam("requestedGain") Integer requestedGain) {
+        return userService.addCoinExp(uid, requestedGain);
+    }
+
+    /**
+     * @param uid    用户id
+     * @param type   经验来源类型：login / watch / vip_watch / share / coin
+     * @param amount 本次发放经验值
+     * @return ResultData对象
+     */
+    @Operation(summary = "增加经验值（按来源类型每日幂等，每天每类只发一次）")
+    @PostMapping("/exp/add")
+    @PreAuthorize("@accessControl.isInternalRequest()")
+    public ResultData<Integer> addExp(@RequestParam("uid") Long uid,
+                                      @RequestParam("type") String type,
+                                      @RequestParam("amount") Integer amount) {
+        return userService.addExp(uid, type, amount);
     }
 
     /**

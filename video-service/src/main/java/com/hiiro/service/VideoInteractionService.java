@@ -34,11 +34,12 @@ public interface VideoInteractionService {
     /**
      * 投币/取消投币
      *
-     * @param uid 用户ID
-     * @param vid 视频ID
+     * @param uid   用户ID
+     * @param vid   视频ID
+     * @param count 投币数量（1或2）
      * @return 操作结果
      */
-    ResultData<String> toggleCoin(Long uid, Long vid);
+    ResultData<String> toggleCoin(Long uid, Long vid, Integer count);
 
     /**
      * 收藏到指定收藏夹
@@ -57,7 +58,7 @@ public interface VideoInteractionService {
      * @param vid 视频ID
      * @return 互动状态 [liked, disliked, coined, favorited]
      */
-    ResultData<Boolean[]> getInteractionStatus(Long uid, Long vid);
+    ResultData<Object[]> getInteractionStatus(Long uid, Long vid);
 
     /**
      * 获取用户最近投币的视频列表
