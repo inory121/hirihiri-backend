@@ -39,6 +39,8 @@ security:
     - /api/video/recommend
     - /api/video/all
     - /api/video/search
+    - /api/video/search/hot
+    - /api/video/search/suggest
     - /api/video/user/{uid:[0-9]+}
     - /api/video/play
     - /api/video/heartbeat
