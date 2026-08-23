@@ -32,7 +32,7 @@ public interface VideoMapper extends BaseMapper<Video> {
     @Select("SELECT v.* FROM video v " +
             "LEFT JOIN video_stat vs ON v.vid = vs.vid " +
             "WHERE v.uid = #{uid} AND v.status = 1 " +
-            "ORDER BY vs.${order} DESC, v.create_date DESC " +
+            "ORDER BY vs.${order} DESC, v.create_time DESC " +
             "LIMIT #{offset}, #{pageSize}")
     List<Video> selectUserVideosWithStatOrder(@Param("uid") Long uid,
                                               @Param("offset") long offset,
@@ -53,13 +53,13 @@ public interface VideoMapper extends BaseMapper<Video> {
      *
      * @param windowMinutes 近 N 分钟内有互动
      * @param recentDays    近 N 天内新建（仍在衰减窗口）
-     * @return 视频列表（含 vid/uid/create_date/hot_score）
+     * @return 视频列表（含 vid/uid/create_time/hot_score）
      */
-    @Select("SELECT v.vid, v.uid, v.create_date, v.hot_score " +
+    @Select("SELECT v.vid, v.uid, v.create_time, v.hot_score " +
             "FROM video v JOIN video_stat vs ON v.vid = vs.vid " +
             "WHERE v.status = 1 " +
             "  AND (vs.update_time > DATE_SUB(NOW(), INTERVAL #{windowMinutes} MINUTE) " +
-            "       OR v.create_date > DATE_SUB(NOW(), INTERVAL #{recentDays} DAY))")
+            "       OR v.create_time > DATE_SUB(NOW(), INTERVAL #{recentDays} DAY))")
     List<Video> selectHotScoreCandidates(@Param("windowMinutes") int windowMinutes,
                                          @Param("recentDays") int recentDays);
 

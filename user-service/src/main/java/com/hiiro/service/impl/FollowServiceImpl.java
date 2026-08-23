@@ -57,7 +57,7 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
             Follow follow = new Follow();
             follow.setFollowerUid(followerUid);
             follow.setFollowingUid(followingUid);
-            follow.setCreateDate(LocalDateTime.now());
+            follow.setCreateTime(LocalDateTime.now());
             save(follow);
             return ResultData.success("关注成功");
         }
@@ -115,7 +115,7 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         List<Long> followerUids = lambdaQuery()
                 .select(Follow::getFollowerUid)
                 .eq(Follow::getFollowingUid, uid)
-                .orderByDesc(Follow::getCreateDate)
+                .orderByDesc(Follow::getCreateTime)
                 .last("LIMIT " + offset + ", " + pageSize)
                 .list()
                 .stream()
@@ -150,7 +150,7 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         List<Long> followingUids = lambdaQuery()
                 .select(Follow::getFollowingUid)
                 .eq(Follow::getFollowerUid, uid)
-                .orderByDesc(Follow::getCreateDate)
+                .orderByDesc(Follow::getCreateTime)
                 .last("LIMIT " + offset + ", " + pageSize)
                 .list()
                 .stream()

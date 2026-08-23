@@ -22,7 +22,7 @@ spring:
         - id: video-route
           uri: lb://video-service
           predicates:
-            - Path=/api/video/**,/api/category/**,/api/danmaku/**,/api/comment/**,/api/history/**,/api/favorite/**,/api/recommend/**
+            - Path=/api/video/**,/api/category/**,/api/danmaku/**,/api/comment/**,/api/history/**,/api/favorite/**,/api/recommend/**,/api/dynamic/**
 # 网关鉴权公开路径配置（无需登录即可访问）
 # 使用 Spring PathPattern 语法，支持通配符和正则变量：
 #   /api/xxx              精确匹配
@@ -61,4 +61,6 @@ security:
     - /api/recommend/events
     - /api/recommend/events/**
     - /api/recommend/related/**
+    - /api/dynamic/list
+    - /api/dynamic/up-list
     - /ws/message

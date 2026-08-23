@@ -13,16 +13,16 @@ import java.time.LocalDateTime;
 
 /**
  * <p>
- * 用户浏览历史表
+ * 动态点赞表
  * </p>
  *
  * @author hiiro
- * @since 2025-06-15
+ * @since 2026-08-23
  */
 @Data
-@TableName("user_browse_history")
-@Tag(name = "UserBrowseHistory对象", description = "用户浏览历史表")
-public class UserBrowseHistory implements Serializable {
+@TableName("dynamic_like")
+@Tag(name = "DynamicLike对象", description = "动态点赞表")
+public class DynamicLike implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -35,28 +35,16 @@ public class UserBrowseHistory implements Serializable {
     private Long id;
 
     /**
-     * 用户ID
+     * 点赞用户ID
      */
-    @Schema(description = "用户ID", name = "uid")
+    @Schema(description = "点赞用户ID", name = "uid")
     private Long uid;
 
     /**
-     * 视频ID
+     * 被点赞动态ID
      */
-    @Schema(description = "视频ID", name = "vid")
-    private Long vid;
-
-    /**
-     * 浏览时间
-     */
-    @Schema(description = "浏览时间", name = "browseTime")
-    private LocalDateTime browseTime;
-
-    /**
-     * 播放进度(秒)
-     */
-    @Schema(description = "播放进度(秒)", name = "progress")
-    private Integer progress;
+    @Schema(description = "被点赞动态ID", name = "dynamicId")
+    private Long dynamicId;
 
     /**
      * 创建时间

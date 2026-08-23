@@ -108,9 +108,9 @@ public class CommentDTO implements Serializable {
     /**
      * 创建时间
      */
-    @Schema(description = "创建时间", name = "createDate")
+    @Schema(description = "创建时间", name = "createTime")
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
 
     /**
      * 是否置顶 0普通 1置顶

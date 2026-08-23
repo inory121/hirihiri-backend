@@ -65,6 +65,22 @@ public class CommentController {
     }
 
     /**
+     * 获取动态评论列表（分页，按 dynamicId 过滤）
+     */
+    @GetMapping("/dynamic/{dynamicId}")
+    @Operation(summary = "获取动态评论列表（分页）")
+    public ResultData<CommentPageDTO> getDynamicComments(
+            @PathVariable("dynamicId") Long dynamicId,
+            @RequestParam(name = "sort", defaultValue = "hot") String sort,
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+            HttpServletRequest request) {
+        String uidStr = request.getHeader("uid");
+        Long currentUid = StringUtils.hasText(uidStr) ? Long.valueOf(uidStr) : null;
+        return commentService.getDynamicComments(dynamicId, sort, page, pageSize, currentUid);
+    }
+
+    /**
      * 发送评论
      *
      * @param comment 评论

@@ -15,6 +15,7 @@ import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.CommentDislikeMapper;
 import com.hiiro.mapper.CommentLikeMapper;
 import com.hiiro.mapper.CommentMapper;
+import com.hiiro.mapper.DynamicMapper;
 import com.hiiro.mapper.VideoMapper;
 import com.hiiro.service.CommentService;
 import com.hiiro.service.VideoStatService;
@@ -47,6 +48,9 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     VideoMapper videoMapper;
 
     @Resource
+    DynamicMapper dynamicMapper;
+
+    @Resource
     VideoStatService videoStatService;
 
     @Resource
@@ -70,7 +74,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         if ("hot".equalsIgnoreCase(sort == null ? "hot" : sort)) {
             rootWrapper.orderByDesc(Comment::getLike);
         } else {
-            rootWrapper.orderByDesc(Comment::getCreateDate);
+            rootWrapper.orderByDesc(Comment::getCreateTime);
         }
 
         // 2. 分页查询根评论
@@ -96,7 +100,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
                 .eq(Comment::getVid, vid)
                 .eq(Comment::getIsDeleted, 0)
                 .in(Comment::getRootId, rootIds) // 属于当前页根评论的回复
-                .orderByAsc(Comment::getCreateDate));
+                .orderByAsc(Comment::getCreateTime));
 
         // 4. 合并根评论和回复，构建评论树
         List<Comment> allComments = new ArrayList<>(rootComments);
@@ -161,8 +165,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
                 int likeB = b.getLike() != null ? b.getLike() : 0;
                 return Integer.compare(likeB, likeA);
             } else {
-                LocalDateTime timeA = a.getCreateDate();
-                LocalDateTime timeB = b.getCreateDate();
+                LocalDateTime timeA = a.getCreateTime();
+                LocalDateTime timeB = b.getCreateTime();
                 if (timeA == null || timeB == null) {
                     return 0;
                 }
@@ -174,7 +178,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         rootDTOs.forEach(root -> {
             List<CommentDTO> allReplies = new ArrayList<>();
             collectAllReplies(root.getReplies(), allReplies);
-            allReplies.sort(Comparator.comparing(CommentDTO::getCreateDate,
+            allReplies.sort(Comparator.comparing(CommentDTO::getCreateTime,
                     Comparator.nullsLast(Comparator.naturalOrder())));
             root.setReplies(allReplies);
         });
@@ -184,6 +188,146 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
         long end = System.currentTimeMillis();
         log.info("获取评论列表耗时：{}ms ", end - start);
+        return ResultData.success(result, "获取评论信息成功");
+    }
+
+    @Override
+    public ResultData<CommentPageDTO> getDynamicComments(Long dynamicId, String sort, int page, int pageSize, Long currentUid) {
+        long start = System.currentTimeMillis();
+
+        Dynamic dynamic = dynamicMapper.selectById(dynamicId);
+        Long dynamicUpUid = dynamic != null ? dynamic.getUid() : null;
+
+        // 1. 构建根评论查询条件（按 dynamicId 过滤）
+        LambdaQueryWrapper<Comment> rootWrapper = new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getDynamicId, dynamicId)
+                .eq(Comment::getIsDeleted, 0)
+                .eq(Comment::getRootId, 0); // 只查根评论
+
+        // 根据排序方式添加排序条件（置顶评论始终排最前）
+        rootWrapper.orderByDesc(Comment::getIsTop);
+        if ("hot".equalsIgnoreCase(sort == null ? "hot" : sort)) {
+            rootWrapper.orderByDesc(Comment::getLike);
+        } else {
+            rootWrapper.orderByDesc(Comment::getCreateTime);
+        }
+
+        // 2. 分页查询根评论
+        Page<Comment> rootPage = new Page<>(page, pageSize);
+        Page<Comment> pagedRoots = commentMapper.selectPage(rootPage, rootWrapper);
+
+        List<Comment> rootComments = pagedRoots.getRecords();
+        long rootTotal = pagedRoots.getTotal(); // 根评论总数，用于分页
+
+        // 查询该动态全部评论总数（根评论+回复），用于前端展示
+        long total = commentMapper.selectCount(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getDynamicId, dynamicId)
+                .eq(Comment::getIsDeleted, 0));
+
+        if (rootComments.isEmpty()) {
+            CommentPageDTO emptyResult = new CommentPageDTO(new ArrayList<>(), total, page, pageSize, false);
+            return ResultData.success(emptyResult, "获取评论信息成功");
+        }
+
+        // 3. 查询当前页根评论的所有子回复
+        List<Long> rootIds = rootComments.stream().map(Comment::getId).collect(Collectors.toList());
+        List<Comment> replies = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getDynamicId, dynamicId)
+                .eq(Comment::getIsDeleted, 0)
+                .in(Comment::getRootId, rootIds) // 属于当前页根评论的回复
+                .orderByAsc(Comment::getCreateTime));
+
+        // 4. 合并根评论和回复，构建评论树
+        List<Comment> allComments = new ArrayList<>(rootComments);
+        allComments.addAll(replies);
+
+        List<Long> allCommentIds = allComments.stream().map(Comment::getId).collect(Collectors.toList());
+
+        // 5. 批量获取用户信息
+        List<Long> allUserIds = allComments.stream()
+                .flatMap(comment -> Stream.of(comment.getUid(), comment.getToUserId()))
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, UserDTO> userMap = new HashMap<>();
+        if (!allUserIds.isEmpty()) {
+            try {
+                List<UserDTO> users = userFeignApi.getBatchUserInfo(allUserIds);
+                if (users != null) {
+                    userMap = users.stream().collect(Collectors.toMap(UserDTO::getUid, u -> u, (a, b) -> a));
+                }
+            } catch (Exception e) {
+                log.warn("批量获取评论用户信息失败", e);
+            }
+        }
+
+        // 6. 批量获取当前用户的点赞/点踩状态
+        Set<Long> likedCommentIds = new HashSet<>();
+        Set<Long> dislikedCommentIds = new HashSet<>();
+        if (currentUid != null && !allCommentIds.isEmpty()) {
+            List<CommentLike> myLikes = commentLikeMapper.selectList(new LambdaQueryWrapper<CommentLike>()
+                    .eq(CommentLike::getUid, currentUid)
+                    .in(CommentLike::getCommentId, allCommentIds));
+            likedCommentIds = myLikes.stream().map(CommentLike::getCommentId).collect(Collectors.toSet());
+
+            List<CommentDislike> myDislikes = commentDislikeMapper.selectList(new LambdaQueryWrapper<CommentDislike>()
+                    .eq(CommentDislike::getUid, currentUid)
+                    .in(CommentDislike::getCommentId, allCommentIds));
+            dislikedCommentIds = myDislikes.stream().map(CommentDislike::getCommentId).collect(Collectors.toSet());
+        }
+
+        // 7. 查询动态UP主点赞的评论
+        Set<Long> upLikedCommentIds = new HashSet<>();
+        if (dynamicUpUid != null) {
+            List<CommentLike> upLikedList = commentLikeMapper.selectList(
+                    new LambdaQueryWrapper<CommentLike>()
+                            .eq(CommentLike::getUid, dynamicUpUid)
+                            .in(CommentLike::getCommentId, allCommentIds)
+            );
+            upLikedCommentIds = upLikedList.stream().map(CommentLike::getCommentId).collect(Collectors.toSet());
+        }
+
+        // 8. 构建评论树
+        List<UserDTO> users = new ArrayList<>(userMap.values());
+        List<CommentDTO> rootDTOs = buildCommentTreeIterative(allComments, users, likedCommentIds, dislikedCommentIds, upLikedCommentIds);
+
+        // 9. 对根评论按原排序方式排序（分页查询时已排序，但构建树后需要保持顺序）
+        String sortMode = sort == null ? "hot" : sort;
+        rootDTOs.sort((a, b) -> {
+            int topA = a.getIsTop() != null ? a.getIsTop() : 0;
+            int topB = b.getIsTop() != null ? b.getIsTop() : 0;
+            if (topA != topB) {
+                return Integer.compare(topB, topA);
+            }
+            if ("hot".equalsIgnoreCase(sortMode)) {
+                int likeA = a.getLike() != null ? a.getLike() : 0;
+                int likeB = b.getLike() != null ? b.getLike() : 0;
+                return Integer.compare(likeB, likeA);
+            } else {
+                LocalDateTime timeA = a.getCreateTime();
+                LocalDateTime timeB = b.getCreateTime();
+                if (timeA == null || timeB == null) {
+                    return 0;
+                }
+                return timeB.compareTo(timeA);
+            }
+        });
+
+        // 10. 子评论按时间升序排列
+        rootDTOs.forEach(root -> {
+            List<CommentDTO> allReplies = new ArrayList<>();
+            collectAllReplies(root.getReplies(), allReplies);
+            allReplies.sort(Comparator.comparing(CommentDTO::getCreateTime,
+                    Comparator.nullsLast(Comparator.naturalOrder())));
+            root.setReplies(allReplies);
+        });
+
+        boolean hasMore = (long) page * pageSize < rootTotal;
+        CommentPageDTO result = new CommentPageDTO(rootDTOs, total, page, pageSize, hasMore);
+
+        long end = System.currentTimeMillis();
+        log.info("获取动态评论列表耗时：{}ms ", end - start);
         return ResultData.success(result, "获取评论信息成功");
     }
 
@@ -206,7 +350,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         List<Comment> replies = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getRootId, rootId)
                 .eq(Comment::getIsDeleted, 0)
-                .orderByAsc(Comment::getCreateDate));
+                .orderByAsc(Comment::getCreateTime));
 
         List<Comment> allComments = new ArrayList<>();
         allComments.add(root);
@@ -258,7 +402,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         }
         List<CommentDTO> flatReplies = new ArrayList<>();
         collectAllReplies(rootDTO.getReplies(), flatReplies);
-        flatReplies.sort(Comparator.comparing(CommentDTO::getCreateDate,
+        flatReplies.sort(Comparator.comparing(CommentDTO::getCreateTime,
                 Comparator.nullsLast(Comparator.naturalOrder())));
         rootDTO.setReplies(flatReplies);
 
@@ -360,7 +504,18 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             }
             comment.setToUserId(derived != null ? derived : 0L);
         }
-        if (commentMapper.insert(comment) == 1 && videoStatService.incrementReply(comment.getVid()) == 1) {
+        // 视频评论需同步更新视频统计；动态评论(vid为空)仅插入评论本身
+        boolean inserted = commentMapper.insert(comment) == 1;
+        if (inserted && comment.getVid() != null
+                && videoStatService.incrementReply(comment.getVid()) != 1) {
+            // 视频统计更新失败，回滚评论插入（仅视频评论才需要强一致）
+            commentMapper.deleteById(comment.getId());
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "评论失败，请重试");
+        }
+        if (!inserted) {
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "评论失败，请重试");
+        }
+        if (inserted) {
             UserDTO userDTO = userFeignApi.getUserByUid(comment.getUid()).getData();
             UserDTO toUserDTO = comment.getToUserId() != null
                     ? userFeignApi.getUserByUid(comment.getToUserId()).getData()

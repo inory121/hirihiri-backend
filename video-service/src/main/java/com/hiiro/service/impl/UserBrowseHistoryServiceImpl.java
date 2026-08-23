@@ -51,7 +51,7 @@ public class UserBrowseHistoryServiceImpl extends ServiceImpl<UserBrowseHistoryM
             history.setVid(vid);
             history.setBrowseTime(LocalDateTime.now());
             history.setProgress(progress);
-            history.setCreateDate(LocalDateTime.now());
+            history.setCreateTime(LocalDateTime.now());
             return userBrowseHistoryMapper.insert(history);
         }
     }

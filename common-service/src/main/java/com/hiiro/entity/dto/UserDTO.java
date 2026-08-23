@@ -1,5 +1,6 @@
 package com.hiiro.entity.dto;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Data;
 
 import java.io.Serial;
@@ -93,5 +94,11 @@ public class UserDTO implements Serializable {
     /**
      * 创建时间
      */
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
+
+    /**
+     * 当前登录用户是否已关注该用户（非数据库字段，用于接口返回）
+     */
+    @TableField(exist = false)
+    private Boolean isFollowing;
 }

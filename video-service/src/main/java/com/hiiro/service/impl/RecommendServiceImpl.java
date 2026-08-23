@@ -363,7 +363,7 @@ public class RecommendServiceImpl implements RecommendService {
             return new LambdaQueryChainWrapper<>(videoMapper)
                     .eq(Video::getStatus, (byte) 1)
                     .in(Video::getUid, followingUids)
-                    .orderByDesc(Video::getCreateDate)
+                    .orderByDesc(Video::getCreateTime)
                     .last("LIMIT " + FOLLOW_CANDIDATE_LIMIT)
                     .list();
         } catch (Exception e) {
@@ -418,8 +418,8 @@ public class RecommendServiceImpl implements RecommendService {
 
         // 新鲜度
         double freshness = 1.0;
-        if (video.getCreateDate() != null) {
-            long hours = ChronoUnit.HOURS.between(video.getCreateDate(), LocalDateTime.now());
+        if (video.getCreateTime() != null) {
+            long hours = ChronoUnit.HOURS.between(video.getCreateTime(), LocalDateTime.now());
             freshness = Math.exp(-hours / 168.0);
         }
 
@@ -430,8 +430,8 @@ public class RecommendServiceImpl implements RecommendService {
         double authorAffinity = followingUids.contains(video.getUid()) ? 1.0 : 0.0;
 
         // 探索分（新视频）
-        boolean isNew = video.getCreateDate() != null
-                && ChronoUnit.HOURS.between(video.getCreateDate(), LocalDateTime.now()) < NEW_VIDEO_HOURS;
+        boolean isNew = video.getCreateTime() != null
+                && ChronoUnit.HOURS.between(video.getCreateTime(), LocalDateTime.now()) < NEW_VIDEO_HOURS;
         double explore = isNew ? 0.5 : 0.0;
 
         return W_INTEREST * interestMatch
@@ -491,16 +491,16 @@ public class RecommendServiceImpl implements RecommendService {
         // 探索补位：如果结果中新视频不够，从候选中补充（同样遵守过滤规则）
         long newCount = result.stream()
                 .map(videoMap::get)
-                .filter(v -> v != null && v.getCreateDate() != null)
-                .filter(v -> ChronoUnit.HOURS.between(v.getCreateDate(), LocalDateTime.now()) < NEW_VIDEO_HOURS)
+                .filter(v -> v != null && v.getCreateTime() != null)
+                .filter(v -> ChronoUnit.HOURS.between(v.getCreateTime(), LocalDateTime.now()) < NEW_VIDEO_HOURS)
                 .count();
 
         if (newCount < newVideoSlots) {
             for (Long vid : sortedVids) {
                 if (result.contains(vid)) continue;
                 Video v = videoMap.get(vid);
-                if (v == null || v.getCreateDate() == null) continue;
-                if (ChronoUnit.HOURS.between(v.getCreateDate(), LocalDateTime.now()) >= NEW_VIDEO_HOURS) continue;
+                if (v == null || v.getCreateTime() == null) continue;
+                if (ChronoUnit.HOURS.between(v.getCreateTime(), LocalDateTime.now()) >= NEW_VIDEO_HOURS) continue;
                 // 探索补位也必须遵守过滤规则
                 if (dislikedVids.contains(vid) || blockedVids.contains(vid) || fullyWatchedVids.contains(vid)) continue;
                 if (blockedAuthors.contains(v.getUid())) continue;

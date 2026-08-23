@@ -40,6 +40,12 @@ public class Comment implements Serializable {
     private Long vid;
 
     /**
+     * 评论的动态id（动态评论时填充，与 vid 互斥）
+     */
+    @Schema(description ="评论的动态id",name = "dynamicId")
+    private Long dynamicId;
+
+    /**
      * 发送者id
      */
     @Schema(description ="发送者id",name = "uid")
@@ -85,9 +91,9 @@ public class Comment implements Serializable {
     /**
      * 创建时间
      */
-    @Schema(description ="创建时间",name = "createDate")
+    @Schema(description ="创建时间",name = "createTime")
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
 
     /**
      * 是否置顶 0普通 1置顶

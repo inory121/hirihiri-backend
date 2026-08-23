@@ -86,7 +86,7 @@ public class Danmaku implements Serializable {
     /**
      * 发送弹幕的日期时间
      */
-    @Schema(name = "createDate",description = "发送弹幕的日期时间")
+    @Schema(name = "createTime",description = "发送弹幕的日期时间")
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
 }

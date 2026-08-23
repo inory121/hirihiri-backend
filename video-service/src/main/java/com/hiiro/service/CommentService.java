@@ -29,6 +29,18 @@ public interface CommentService extends IService<Comment> {
     ResultData<CommentPageDTO> getComments(Long vid, String sort, int page, int pageSize, Long currentUid);
 
     /**
+     * 获取动态评论列表（分页，按 dynamicId 过滤）
+     *
+     * @param dynamicId 动态id
+     * @param sort      排序方式：hot-最热，new-最新
+     * @param page      页码（从1开始）
+     * @param pageSize  每页大小
+     * @param currentUid 当前登录用户ID（未登录为null）
+     * @return 分页评论列表
+     */
+    ResultData<CommentPageDTO> getDynamicComments(Long dynamicId, String sort, int page, int pageSize, Long currentUid);
+
+    /**
      * 根据评论ID获取其所属的完整评论树（根评论+全部回复）
      * 用于从通知跳转时把目标评论所在楼层临时置顶展示
      *

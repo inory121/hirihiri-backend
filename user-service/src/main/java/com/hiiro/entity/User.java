@@ -121,9 +121,9 @@ public class User implements Serializable {
     /**
      * 创建时间
      */
-    @Schema(description = "创建时间",name = "createDate")
+    @Schema(description = "创建时间",name = "createTime")
     @TableField(fill = FieldFill.INSERT) //mybatisplus会在插入后自动添加该字段
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
 
     /**
      * 注销时间

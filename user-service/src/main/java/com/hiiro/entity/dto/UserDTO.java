@@ -113,9 +113,9 @@ public class UserDTO implements Serializable {
     /**
      * 创建时间
      */
-    @Schema(description = "创建时间",name = "createDate")
+    @Schema(description = "创建时间",name = "createTime")
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
 
     /**
      * 当前登录用户是否已关注该用户（非数据库字段，用于接口返回）

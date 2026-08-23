@@ -15,6 +15,7 @@ import com.hiiro.entity.document.VideoDocument;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.VideoMapper;
 import com.hiiro.service.CategoryService;
+import com.hiiro.service.DynamicService;
 import com.hiiro.service.VideoService;
 import com.hiiro.service.VideoStatService;
 import com.hiiro.service.cache.CategoryCacheService;
@@ -63,6 +64,8 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 
 	@Resource
 	private VideoStatService videoStatService;
+	@Resource
+	private DynamicService dynamicService;
 	@Resource
 	private VideoMapper videoMapper;
 	@Resource
@@ -243,9 +246,30 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 			event.put("uid", video.getUid());
 			event.put("timestamp", System.currentTimeMillis());
 			streamBridge.send("videoEvent-out-0", event);
+			// 投稿成功后自动生成一条投稿动态（type=2）
+			createPublishDynamic(video);
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * 投稿视频后自动生成投稿动态（type=2）
+	 */
+	private void createPublishDynamic(Video video) {
+		try {
+			Dynamic dynamic = new Dynamic();
+			dynamic.setUid(video.getUid());
+			dynamic.setTitle(video.getTitle());
+			dynamic.setContent(video.getTitle());
+			dynamic.setType((byte) 2);
+			dynamic.setVid(video.getVid());
+			dynamic.setIsTop((byte) 0);
+			dynamic.setCreateTime(LocalDateTime.now());
+			dynamicService.save(dynamic);
+		} catch (Exception e) {
+			log.warn("投稿视频自动生成动态失败, vid={}", video.getVid(), e);
+		}
 	}
 
 	/**
@@ -441,7 +465,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 						case "favorite" -> Integer.compare(
 								sb.getFavorite() != null ? sb.getFavorite() : 0,
 								sa.getFavorite() != null ? sa.getFavorite() : 0);
-						case "date" -> b.getCreateDate().compareTo(a.getCreateDate());
+						case "date" -> b.getCreateTime().compareTo(a.getCreateTime());
 						default -> 0;
 					};
 				});
@@ -619,7 +643,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 				videoPage = new LambdaQueryChainWrapper<>(videoMapper)
 						.eq(Video::getUid, uid)
 						.eq(Video::getStatus, 1)
-						.orderByDesc(Video::getCreateDate)
+						.orderByDesc(Video::getCreateTime)
 						.page(page);
 			}
 			ResultData<List<Map<String, Object>>> result = processVideoPage(videoPage);

@@ -79,7 +79,7 @@ public class HotScoreCalculator {
                     new LambdaQueryWrapper<Video>()
                             .eq(Video::getStatus, (byte) 1)
                             .select(Video::getVid, Video::getUid,
-                                    Video::getCreateDate, Video::getHotScore));
+                                    Video::getCreateTime, Video::getHotScore));
             int n = recompute(all);
             log.info("热度分(全量兜底)完成, 候选={}, 实际更新={}, 耗时={}ms",
                     all.size(), n, System.currentTimeMillis() - t0);
@@ -160,8 +160,8 @@ public class HotScoreCalculator {
 
         // 新鲜度衰减
         double freshness = 1.0;
-        if (video.getCreateDate() != null) {
-            long hours = ChronoUnit.HOURS.between(video.getCreateDate(), now);
+        if (video.getCreateTime() != null) {
+            long hours = ChronoUnit.HOURS.between(video.getCreateTime(), now);
             freshness = Math.exp(-hours / 168.0); // 168 小时 = 7 天
         }
 

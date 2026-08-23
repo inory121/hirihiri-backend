@@ -30,5 +30,5 @@ public class Follow implements Serializable {
     private Long followingUid;
 
     @Schema(description = "创建时间")
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
 }

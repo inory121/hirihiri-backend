@@ -115,9 +115,9 @@ public class Video implements Serializable {
     /**
      * 上传时间
      */
-    @Schema(description = "上传时间",name = "createDate")
+    @Schema(description = "上传时间",name = "createTime")
     @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createDate;
+    private LocalDateTime createTime;
 
     /**
      * 删除时间

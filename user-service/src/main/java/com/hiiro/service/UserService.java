@@ -146,14 +146,7 @@ public interface UserService extends IService<User> {
      * @param uid    用户id
      * @param type   经验来源类型：login / watch / vip_watch / share / coin
      * @param amount 本次发放经验值
-     * @return 实际增加的经验值（当天该类型已发过则返回0）
+     * @return 实际增加的经验值（当天该类型已发过则返回 0）
      */
     ResultData<Integer> addExp(Long uid, String type, Integer amount);
-
-    /**
-     * 每日登录自动发放 +1 硬币（Lv1+ 用户每天限一次）
-     *
-     * @param uid 用户id
-     */
-    void grantDailyLoginCoin(Long uid);
 }
