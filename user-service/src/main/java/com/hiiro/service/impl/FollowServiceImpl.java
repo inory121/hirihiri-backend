@@ -228,4 +228,18 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
                 .map(Follow::getFollowingUid)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<Long> getFollowerUids(Long uid) {
+        if (uid == null) {
+            return List.of();
+        }
+        return lambdaQuery()
+                .select(Follow::getFollowerUid)
+                .eq(Follow::getFollowingUid, uid)
+                .list()
+                .stream()
+                .map(Follow::getFollowerUid)
+                .collect(Collectors.toList());
+    }
 }

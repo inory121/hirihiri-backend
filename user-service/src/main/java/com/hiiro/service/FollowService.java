@@ -27,4 +27,12 @@ public interface FollowService extends IService<Follow> {
      * @return 被关注者 uid 列表
      */
     List<Long> getFollowingUids(Long uid);
+
+    /**
+     * 获取关注指定用户的粉丝 uid 列表（内部调用，用于投稿通知等场景）
+     *
+     * @param uid 被关注者 uid
+     * @return 粉丝 uid 列表
+     */
+    List<Long> getFollowerUids(Long uid);
 }

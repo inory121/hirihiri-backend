@@ -37,6 +37,16 @@ public class UserFeignFallbackFactory implements FallbackFactory<UserFeignApi> {
             }
 
             @Override
+            public ResultData<List<Long>> getFollowerUids(Long uid) {
+                return ResultData.success(Collections.emptyList());
+            }
+
+            @Override
+            public ResultData<List<Long>> getUnreadNoticeBizIds(Long receiveUid, String noticeType, String bizType, Integer limit) {
+                return ResultData.success(Collections.emptyList());
+            }
+
+            @Override
             public ResultData<Long> createInternalNotice(MessageNoticeCreateDTO dto) {
                 return ResultData.fail(ResultCodeEnum.TOO_MANY_REQUESTS, "消息服务不可用");
             }

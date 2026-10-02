@@ -345,6 +345,30 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
+    public List<Long> getUnreadNoticeBizIds(Long receiveUid, String noticeType, String bizType, Integer limit) {
+        if (receiveUid == null) {
+            return Collections.emptyList();
+        }
+        int max = (limit == null || limit < 1 || limit > 100) ? 50 : limit;
+        LambdaQueryWrapper<MessageNotice> wrapper = new LambdaQueryWrapper<MessageNotice>()
+                .select(MessageNotice::getBizId)
+                .eq(MessageNotice::getReceiveUid, receiveUid)
+                .eq(MessageNotice::getIsRead, 0)
+                .orderByDesc(MessageNotice::getCreateTime)
+                .last("LIMIT " + max);
+        if (StringUtils.hasText(noticeType)) {
+            wrapper.eq(MessageNotice::getNoticeType, noticeType);
+        }
+        if (StringUtils.hasText(bizType)) {
+            wrapper.eq(MessageNotice::getBizType, bizType);
+        }
+        return messageNoticeMapper.selectList(wrapper).stream()
+                .map(MessageNotice::getBizId)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public ResultData<String> deleteSession(Long uid, Long sessionId) {
         MessageSession session = messageSessionMapper.selectById(sessionId);
@@ -484,12 +508,15 @@ public class MessageServiceImpl implements MessageService {
         int atUnread = 0;
         int likeUnread = 0;
         int systemUnread = 0;
+        int dynamicUnread = 0;
         for (MessageNotice notice : unreadNotices) {
             switch (String.valueOf(notice.getNoticeType())) {
                 case "reply" -> replyUnread++;
                 case "at" -> atUnread++;
                 case "like" -> likeUnread++;
                 case "system" -> systemUnread++;
+                // 动态投稿通知：单独计数，仅驱动头部动态红点，不入消息红点
+                case "dynamic" -> dynamicUnread++;
                 default -> systemUnread++;
             }
         }
@@ -500,6 +527,7 @@ public class MessageServiceImpl implements MessageService {
         dto.setAtUnread(atUnread);
         dto.setLikeUnread(likeUnread);
         dto.setSystemUnread(systemUnread);
+        dto.setDynamicUnread(dynamicUnread);
         dto.setTotalUnread(privateUnread + strangerUnread + replyUnread + atUnread + likeUnread + systemUnread);
         return dto;
     }

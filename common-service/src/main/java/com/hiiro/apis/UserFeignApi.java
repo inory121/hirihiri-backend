@@ -28,6 +28,15 @@ public interface UserFeignApi {
 
     @GetMapping("/api/follow/following-uids/{uid}")
     ResultData<List<Long>> getFollowingUids(@PathVariable("uid") Long uid);
+    
+    @GetMapping("/api/follow/follower-uids/{uid}")
+    ResultData<List<Long>> getFollowerUids(@PathVariable("uid") Long uid);
+    
+    @GetMapping("/api/message/internal/notice/unread-biz-ids")
+    ResultData<List<Long>> getUnreadNoticeBizIds(@RequestParam("receiveUid") Long receiveUid,
+                                                 @RequestParam(value = "noticeType", required = false) String noticeType,
+                                                 @RequestParam(value = "bizType", required = false) String bizType,
+                                                 @RequestParam(value = "limit", required = false) Integer limit);
 
     @PostMapping("/api/message/internal/notice")
     ResultData<Long> createInternalNotice(@RequestBody MessageNoticeCreateDTO dto);

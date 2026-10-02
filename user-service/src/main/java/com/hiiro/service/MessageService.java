@@ -46,6 +46,17 @@ public interface MessageService {
      * @param bizIds 被删评论 id 列表
      */
     ResultData<String> deleteNoticeByBizIds(List<Long> bizIds);
+    
+    /**
+     * 获取指定用户某类未读通知的 bizId 列表（按创建时间倒序，最多 limit 条）
+     * （内部调用：动态弹窗根据 bizId 反查未读动态）
+     *
+     * @param receiveUid 接收者
+     * @param noticeType 通知类型（可空）
+     * @param bizType    业务类型（可空）
+     * @param limit      最大条数（默认 50，上限 100）
+     */
+    List<Long> getUnreadNoticeBizIds(Long receiveUid, String noticeType, String bizType, Integer limit);
 
     ResultData<String> deleteSession(Long uid, Long sessionId);
 }

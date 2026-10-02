@@ -138,4 +138,15 @@ public class MessageController {
     public ResultData<String> deleteNoticeByBizIds(@RequestBody List<Long> bizIds) {
         return messageService.deleteNoticeByBizIds(bizIds);
     }
+
+    @Operation(summary = "内部获取未读通知的bizId列表")
+    @GetMapping("/internal/notice/unread-biz-ids")
+    @PreAuthorize("@accessControl.isInternalRequest() || hasAnyRole('ROLE_ADMIN','ROLE_SUPER_ADMIN')")
+    public ResultData<List<Long>> getUnreadNoticeBizIds(
+            @RequestParam("receiveUid") Long receiveUid,
+            @RequestParam(value = "noticeType", required = false) String noticeType,
+            @RequestParam(value = "bizType", required = false) String bizType,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        return ResultData.success(messageService.getUnreadNoticeBizIds(receiveUid, noticeType, bizType, limit));
+    }
 }
