@@ -282,8 +282,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 BeanUtil.copyProperties(user, updateUser, "uid", "password", "role");
             } else {
                 // 普通用户/管理员：只能改自己的公开信息
+                // username 仅用于登录与 @提及锚点（唯一索引），禁止自助修改，避免唯一键冲突/历史提及失效
                 BeanUtil.copyProperties(user, updateUser,
-                        "uid", "password", "role", "state", "auth", "authMsg", "exp", "coin", "vip");
+                        "uid", "password", "role", "state", "auth", "authMsg", "exp", "coin", "vip", "username");
             }
         }
 
