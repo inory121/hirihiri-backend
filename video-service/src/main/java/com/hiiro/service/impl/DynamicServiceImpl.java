@@ -33,6 +33,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -126,9 +127,22 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
         }
         this.save(dynamic);
 
-        // 发布动态时，正文里 @uid 提及也要触发"@我的"通知（与评论行为一致）
+        // 发布动态时，正文里 @uid 提及也要触发“@我的”通知（与评论行为一致）
         notifyAtOnDynamicPublish(uid, dynamic.getId(), dto.getContent());
-
+        
+        // 投稿视频动态（type=2）：通知粉丝，驱动头部动态红点（分享视频 type=1 不通知）
+        if (type == 2 && dto.getVid() != null) {
+            Video video = null;
+            try {
+                video = videoMapper.selectOne(new LambdaQueryWrapper<Video>().eq(Video::getVid, dto.getVid()));
+            } catch (Exception e) {
+                log.warn("投稿动态通知查询视频信息失败, vid={}", dto.getVid(), e);
+            }
+            notifyVideoDynamicToFollowers(uid, dynamic.getId(), dto.getVid(),
+                    video != null ? video.getTitle() : dynamic.getTitle(),
+                    video != null ? video.getCoverUrl() : null);
+        }
+        
         return ResultData.success("发布成功");
     }
 
@@ -294,101 +308,7 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
             fillFollowingStatus(videoUserMap, myFollowingUids);
 
             // 批量获取转发动态关联的被转发原动态（递归到最原始动态）
-            List<Long> parentIds = records.stream()
-                    .filter(d -> d.getType() != null && d.getType() == 3 && d.getParentId() != null)
-                    .map(Dynamic::getParentId)
-                    .distinct()
-                    .toList();
-            Map<Long, DynamicDTO> parentDtoMap = new HashMap<>();
-            if (!CollectionUtils.isEmpty(parentIds)) {
-                try {
-                    // 递归收集所有相关动态ID，避免多层转发只返回一层parent
-                    Set<Long> allRelatedIds = new HashSet<>(parentIds);
-                    Set<Long> currentIds = new HashSet<>(parentIds);
-                    while (!currentIds.isEmpty()) {
-                        List<Dynamic> currentDynamics = this.listByIds(currentIds);
-                        Set<Long> nextIds = currentDynamics.stream()
-                                .filter(d -> d.getType() != null && d.getType() == 3 && d.getParentId() != null)
-                                .map(Dynamic::getParentId)
-                                .filter(allRelatedIds::add)
-                                .collect(Collectors.toSet());
-                        currentIds = nextIds;
-                    }
-                    List<Dynamic> allRelatedDynamics = this.listByIds(allRelatedIds);
-                    if (!CollectionUtils.isEmpty(allRelatedDynamics)) {
-                        // 构建所有相关动态需要的发布者、视频信息
-                        Map<Long, UserDTO> parentUserMap = new HashMap<>();
-                        List<Long> parentUids = allRelatedDynamics.stream().map(Dynamic::getUid).distinct().toList();
-                        try {
-                            List<UserDTO> pUsers = userFeignApi.getBatchUserInfo(parentUids);
-                            if (!CollectionUtils.isEmpty(pUsers)) {
-                                parentUserMap = pUsers.stream()
-                                        .filter(Objects::nonNull)
-                                        .collect(Collectors.toMap(UserDTO::getUid, Function.identity(), (a, b) -> a));
-                            }
-                        } catch (Exception e) {
-                            log.warn("批量获取parent动态发布者失败", e);
-                        }
-                        // 填充当前登录用户对parent动态发布者的关注状态
-                        fillFollowingStatus(parentUserMap, myFollowingUids);
-                        List<Long> parentVids = allRelatedDynamics.stream()
-                                .filter(pd -> pd.getType() != null && pd.getType() >= 1 && pd.getVid() != null)
-                                .map(Dynamic::getVid).distinct().toList();
-                        Map<Long, Video> pVideoMap = new HashMap<>();
-                        Map<Long, VideoStat> pStatMap = new HashMap<>();
-                        Map<Long, UserDTO> pVideoUserMap = new HashMap<>();
-                        if (!CollectionUtils.isEmpty(parentVids)) {
-                            try {
-                                List<Video> pvs = videoMapper.selectBatchIds(parentVids);
-                                if (!CollectionUtils.isEmpty(pvs)) {
-                                    pVideoMap = pvs.stream()
-                                            .filter(Objects::nonNull)
-                                            .collect(Collectors.toMap(Video::getVid, Function.identity(), (a, b) -> a));
-                                }
-                            } catch (Exception e) {
-                                log.warn("批量获取parent动态视频失败", e);
-                            }
-                            for (Long vid : parentVids) {
-                                try {
-                                    pStatMap.put(vid, videoStatService.getVideoStatByVid(vid));
-                                } catch (Exception e) {
-                                    log.warn("获取parent视频stat失败, vid={}", vid, e);
-                                }
-                            }
-                            Set<Long> pVideoOwnerUids = pVideoMap.values().stream()
-                                    .map(Video::getUid).filter(Objects::nonNull).collect(Collectors.toSet());
-                            if (!CollectionUtils.isEmpty(pVideoOwnerUids)) {
-                                try {
-                                    List<UserDTO> pVu = userFeignApi.getBatchUserInfo(pVideoOwnerUids.stream().toList());
-                                    if (!CollectionUtils.isEmpty(pVu)) {
-                                        pVideoUserMap = pVu.stream()
-                                                .filter(Objects::nonNull)
-                                                .collect(Collectors.toMap(UserDTO::getUid, Function.identity(), (a, b) -> a));
-                                    }
-                                } catch (Exception e) {
-                                    log.warn("批量获取parent动态视频UP主失败", e);
-                                }
-                            }
-                        }
-                        // 填充当前登录用户对parent动态视频UP主的关注状态
-                        fillFollowingStatus(pVideoUserMap, myFollowingUids);
-                        Map<Long, DynamicDTO> allDtoMap = new HashMap<>();
-                        for (Dynamic pd : allRelatedDynamics) {
-                            DynamicDTO pdDto = convertDynamicToDto(pd, parentUserMap, pVideoMap, pStatMap, pVideoUserMap);
-                            allDtoMap.put(pd.getId(), pdDto);
-                        }
-                        // 递归填充parent链
-                        for (DynamicDTO dto : allDtoMap.values()) {
-                            fillParentChain(dto, allDtoMap);
-                        }
-                        for (Long pid : parentIds) {
-                            parentDtoMap.put(pid, allDtoMap.get(pid));
-                        }
-                    }
-                } catch (Exception e) {
-                    log.warn("批量获取被转发原动态失败, parentIds={}", parentIds, e);
-                }
-            }
+            Map<Long, DynamicDTO> parentDtoMap = resolveParentDtoMap(records, myFollowingUids);
 
             // 批量回填点赞数(likeCount)与当前用户是否已赞(liked)
             Map<Long, Integer> likeCountMap = new HashMap<>();
@@ -624,6 +544,466 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
         }
         boolean removed = this.removeById(id);
         return removed ? ResultData.success("删除成功") : ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "删除失败");
+    }
+
+    /**
+     * 投稿视频动态生成后，给所有粉丝发送 dynamic 类型通知（发送失败不影响主流程）
+     */
+    @Override
+    public void notifyVideoDynamicToFollowers(Long uid, Long dynamicId, Long vid, String title, String coverUrl) {
+        if (uid == null || dynamicId == null) {
+            return;
+        }
+        try {
+            ResultData<List<Long>> resp = userFeignApi.getFollowerUids(uid);
+            List<Long> followerUids = (resp != null && resp.getData() != null) ? resp.getData() : Collections.emptyList();
+            if (CollectionUtils.isEmpty(followerUids)) {
+                return;
+            }
+            JSONObject ext = new JSONObject();
+            if (vid != null) {
+                ext.put("vid", vid);
+            }
+            if (coverUrl != null) {
+                ext.put("coverUrl", coverUrl);
+            }
+            String extJson = ext.isEmpty() ? null : ext.toJSONString();
+            for (Long followerUid : followerUids) {
+                if (followerUid == null || followerUid.equals(uid)) {
+                    continue;
+                }
+                try {
+                    MessageNoticeCreateDTO notice = new MessageNoticeCreateDTO();
+                    notice.setReceiveUid(followerUid);
+                    notice.setActorUid(uid);
+                    notice.setNoticeType("dynamic");
+                    notice.setBizType("dynamic");
+                    notice.setBizId(dynamicId);
+                    notice.setTitle("动态投稿");
+                    notice.setContentSummary(title);
+                    notice.setExtJson(extJson);
+                    userFeignApi.createInternalNotice(notice);
+                } catch (Exception e) {
+                    log.warn("投稿动态通知发送失败, dynamicId={}, followerUid={}", dynamicId, followerUid, e);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("投稿动态通知查询粉丝失败, dynamicId={}", dynamicId, e);
+        }
+    }
+
+    @Override
+    public ResultData<Map<String, Object>> getUnreadList(Long currentUid) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", Collections.emptyList());
+        result.put("total", 0);
+        if (currentUid == null) {
+            return ResultData.success(result);
+        }
+        // 未读投稿通知的 bizId（= 动态ID），按通知时间倒序
+        List<Long> unreadIds;
+        try {
+            ResultData<List<Long>> resp = userFeignApi.getUnreadNoticeBizIds(currentUid, "dynamic", "dynamic", 50);
+            unreadIds = (resp != null && resp.getData() != null) ? resp.getData() : Collections.emptyList();
+        } catch (Exception e) {
+            log.warn("获取未读动态通知失败, uid={}", currentUid, e);
+            return ResultData.success(result);
+        }
+        if (CollectionUtils.isEmpty(unreadIds)) {
+            return ResultData.success(result);
+        }
+        List<Dynamic> records = new ArrayList<>(this.listByIds(unreadIds));
+        // 只保留视频投稿类型，并按 ID 倒序（新的在前）
+        records = records.stream()
+                .filter(d -> d.getType() != null && d.getType() == 2)
+                .sorted(Comparator.comparing(Dynamic::getId, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .collect(Collectors.toList());
+        List<DynamicDTO> list = buildFeedDTOs(records, fetchFollowingUids(currentUid), currentUid);
+        for (DynamicDTO dto : list) {
+            dto.setUnread(true);
+        }
+        result.put("records", list);
+        result.put("total", list.size());
+        return ResultData.success(result);
+    }
+
+    /**
+     * 动态详情（单条）：复用列表的批量组装逻辑（发布者/视频/点赞/评论/转发数），
+     * 转发动态（type=3）额外填充被转发原动态链
+     */
+    @Override
+    public ResultData<DynamicDTO> getDynamicDetail(Long dynamicId, Long currentUid) {
+        if (dynamicId == null || dynamicId <= 0) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "动态ID不合法");
+        }
+        Dynamic dynamic = this.getById(dynamicId);
+        if (dynamic == null) {
+            return ResultData.fail(ResultCodeEnum.NOT_FOUND, "动态不存在");
+        }
+        Set<Long> followingUids = fetchFollowingUids(currentUid);
+        // 复用列表的批量组装：单元素列表（发布者、视频、关注状态、点赞/评论/转发数一次带全）
+        List<DynamicDTO> dtos = buildFeedDTOs(List.of(dynamic), followingUids, currentUid);
+        DynamicDTO dto = dtos.isEmpty() ? null : dtos.get(0);
+        if (dto != null && dynamic.getType() != null && dynamic.getType() == 3 && dynamic.getParentId() != null) {
+            dto.setParentId(dynamic.getParentId());
+            dto.setParent(resolveParentDtoMap(List.of(dynamic), followingUids).get(dynamic.getParentId()));
+        }
+        return ResultData.success(dto);
+    }
+
+    /**
+     * 动态「赞与转发」用户列表：合并点赞(dynamic_like)与转发(parent_id 指向本动态)记录，
+     * 按操作时间倒序分页；赞与转发分开计数、不去重。
+     */
+    @Override
+    public ResultData<Map<String, Object>> getInteractions(Long dynamicId, Long currentUid, Integer pageNum, Integer pageSize) {
+        if (dynamicId == null || dynamicId <= 0) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "动态ID不合法");
+        }
+        if (pageNum == null || pageNum < 1) {
+            pageNum = 1;
+        }
+        if (pageSize == null || pageSize < 1 || pageSize > 50) {
+            pageSize = 20;
+        }
+        Dynamic dynamic = this.getById(dynamicId);
+        if (dynamic == null) {
+            return ResultData.fail(ResultCodeEnum.NOT_FOUND, "动态不存在");
+        }
+
+        // 点赞记录：uid + 点赞时间
+        List<DynamicLike> likes = dynamicLikeMapper.selectList(
+                new LambdaQueryWrapper<DynamicLike>()
+                        .eq(DynamicLike::getDynamicId, dynamicId));
+        // 转发记录：parent_id 指向本动态的转发动态，取发布者 uid + 转发时间
+        List<Dynamic> reposts = dynamicMapper.selectList(
+                new LambdaQueryWrapper<Dynamic>()
+                        .select(Dynamic::getUid, Dynamic::getCreateTime)
+                        .eq(Dynamic::getParentId, dynamicId));
+
+        // 合并为交互项（action: like / repost），赞与转发各自一条，不去重
+        List<Map<String, Object>> merged = new ArrayList<>(likes.size() + reposts.size());
+        for (DynamicLike l : likes) {
+            if (l.getUid() == null) {
+                continue;
+            }
+            Map<String, Object> m = new HashMap<>();
+            m.put("uid", l.getUid());
+            m.put("action", "like");
+            m.put("time", l.getCreateTime());
+            merged.add(m);
+        }
+        for (Dynamic r : reposts) {
+            if (r.getUid() == null) {
+                continue;
+            }
+            Map<String, Object> m = new HashMap<>();
+            m.put("uid", r.getUid());
+            m.put("action", "repost");
+            m.put("time", r.getCreateTime());
+            merged.add(m);
+        }
+        // 按操作时间倒序（新的在前），时间为空排最后
+        merged.sort((a, b) -> {
+            LocalDateTime ta = (LocalDateTime) a.get("time");
+            LocalDateTime tb = (LocalDateTime) b.get("time");
+            if (ta == null && tb == null) {
+                return 0;
+            }
+            if (ta == null) {
+                return 1;
+            }
+            if (tb == null) {
+                return -1;
+            }
+            return tb.compareTo(ta);
+        });
+
+        int total = merged.size();
+        int from = (pageNum - 1) * pageSize;
+        List<Map<String, Object>> pageItems = (from >= total)
+                ? Collections.emptyList()
+                : merged.subList(from, Math.min(from + pageSize, total));
+
+        // 批量拉取当前页用户信息
+        List<Long> uids = pageItems.stream()
+                .map(m -> (Long) m.get("uid"))
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, UserDTO> userMap = new HashMap<>();
+        if (!uids.isEmpty()) {
+            try {
+                List<UserDTO> users = userFeignApi.getBatchUserInfo(uids);
+                if (!CollectionUtils.isEmpty(users)) {
+                    userMap = users.stream()
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toMap(UserDTO::getUid, Function.identity(), (a, b) -> a));
+                }
+            } catch (Exception e) {
+                log.warn("批量获取互动用户信息失败, uids={}", uids, e);
+            }
+        }
+        // 填充当前登录用户对互动用户的关注状态
+        fillFollowingStatus(userMap, fetchFollowingUids(currentUid));
+
+        List<Map<String, Object>> records = new ArrayList<>(pageItems.size());
+        for (Map<String, Object> m : pageItems) {
+            Long uid = (Long) m.get("uid");
+            UserDTO u = userMap.get(uid);
+            if (u == null) {
+                // 用户已注销/查不到，跳过该条
+                continue;
+            }
+            Map<String, Object> item = new HashMap<>();
+            item.put("user", u);
+            item.put("action", m.get("action"));
+            item.put("time", m.get("time"));
+            records.add(item);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", total);
+        result.put("likeCount", likes.size());
+        result.put("repostCount", reposts.size());
+        return ResultData.success(result);
+    }
+
+    /**
+     * 获取当前用户已关注的 uid 集合（获取失败降级为空集合）
+     */
+    private Set<Long> fetchFollowingUids(Long currentUid) {
+        if (currentUid == null) {
+            return Collections.emptySet();
+        }
+        try {
+            ResultData<List<Long>> resp = userFeignApi.getFollowingUids(currentUid);
+            List<Long> uids = (resp != null && resp.getData() != null) ? resp.getData() : Collections.emptyList();
+            return CollectionUtils.isEmpty(uids) ? Collections.emptySet() : new HashSet<>(uids);
+        } catch (Exception e) {
+            log.warn("获取当前用户关注列表失败, uid={}", currentUid, e);
+            return Collections.emptySet();
+        }
+    }
+
+    /**
+     * 批量解析转发动态关联的被转发原动态（递归到最原始动态）
+     *
+     * @return parentId -> 原动态DTO（无转发动态时为空Map）
+     */
+    private Map<Long, DynamicDTO> resolveParentDtoMap(List<Dynamic> records, Set<Long> myFollowingUids) {
+        List<Long> parentIds = records.stream()
+                .filter(d -> d.getType() != null && d.getType() == 3 && d.getParentId() != null)
+                .map(Dynamic::getParentId)
+                .distinct()
+                .toList();
+        Map<Long, DynamicDTO> parentDtoMap = new HashMap<>();
+        if (CollectionUtils.isEmpty(parentIds)) {
+            return parentDtoMap;
+        }
+        try {
+            // 递归收集所有相关动态ID，避免多层转发只返回一层parent
+            Set<Long> allRelatedIds = new HashSet<>(parentIds);
+            Set<Long> currentIds = new HashSet<>(parentIds);
+            while (!currentIds.isEmpty()) {
+                List<Dynamic> currentDynamics = this.listByIds(currentIds);
+                Set<Long> nextIds = currentDynamics.stream()
+                        .filter(d -> d.getType() != null && d.getType() == 3 && d.getParentId() != null)
+                        .map(Dynamic::getParentId)
+                        .filter(allRelatedIds::add)
+                        .collect(Collectors.toSet());
+                currentIds = nextIds;
+            }
+            List<Dynamic> allRelatedDynamics = this.listByIds(allRelatedIds);
+            if (!CollectionUtils.isEmpty(allRelatedDynamics)) {
+                // 构建所有相关动态需要的发布者、视频信息
+                Map<Long, UserDTO> parentUserMap = new HashMap<>();
+                List<Long> parentUids = allRelatedDynamics.stream().map(Dynamic::getUid).distinct().toList();
+                try {
+                    List<UserDTO> pUsers = userFeignApi.getBatchUserInfo(parentUids);
+                    if (!CollectionUtils.isEmpty(pUsers)) {
+                        parentUserMap = pUsers.stream()
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toMap(UserDTO::getUid, Function.identity(), (a, b) -> a));
+                    }
+                } catch (Exception e) {
+                    log.warn("批量获取parent动态发布者失败", e);
+                }
+                // 填充当前登录用户对parent动态发布者的关注状态
+                fillFollowingStatus(parentUserMap, myFollowingUids);
+                List<Long> parentVids = allRelatedDynamics.stream()
+                        .filter(pd -> pd.getType() != null && pd.getType() >= 1 && pd.getVid() != null)
+                        .map(Dynamic::getVid).distinct().toList();
+                Map<Long, Video> pVideoMap = new HashMap<>();
+                Map<Long, VideoStat> pStatMap = new HashMap<>();
+                Map<Long, UserDTO> pVideoUserMap = new HashMap<>();
+                if (!CollectionUtils.isEmpty(parentVids)) {
+                    try {
+                        List<Video> pvs = videoMapper.selectBatchIds(parentVids);
+                        if (!CollectionUtils.isEmpty(pvs)) {
+                            pVideoMap = pvs.stream()
+                                    .filter(Objects::nonNull)
+                                    .collect(Collectors.toMap(Video::getVid, Function.identity(), (a, b) -> a));
+                        }
+                    } catch (Exception e) {
+                        log.warn("批量获取parent动态视频失败", e);
+                    }
+                    for (Long vid : parentVids) {
+                        try {
+                            pStatMap.put(vid, videoStatService.getVideoStatByVid(vid));
+                        } catch (Exception e) {
+                            log.warn("获取parent视频stat失败, vid={}", vid, e);
+                        }
+                    }
+                    Set<Long> pVideoOwnerUids = pVideoMap.values().stream()
+                            .map(Video::getUid).filter(Objects::nonNull).collect(Collectors.toSet());
+                    if (!CollectionUtils.isEmpty(pVideoOwnerUids)) {
+                        try {
+                            List<UserDTO> pVu = userFeignApi.getBatchUserInfo(pVideoOwnerUids.stream().toList());
+                            if (!CollectionUtils.isEmpty(pVu)) {
+                                pVideoUserMap = pVu.stream()
+                                        .filter(Objects::nonNull)
+                                        .collect(Collectors.toMap(UserDTO::getUid, Function.identity(), (a, b) -> a));
+                            }
+                        } catch (Exception e) {
+                            log.warn("批量获取parent动态视频UP主失败", e);
+                        }
+                    }
+                }
+                // 填充当前登录用户对parent动态视频UP主的关注状态
+                fillFollowingStatus(pVideoUserMap, myFollowingUids);
+                Map<Long, DynamicDTO> allDtoMap = new HashMap<>();
+                for (Dynamic pd : allRelatedDynamics) {
+                    DynamicDTO pdDto = convertDynamicToDto(pd, parentUserMap, pVideoMap, pStatMap, pVideoUserMap);
+                    allDtoMap.put(pd.getId(), pdDto);
+                }
+                // 递归填充parent链
+                for (DynamicDTO dto : allDtoMap.values()) {
+                    fillParentChain(dto, allDtoMap);
+                }
+                for (Long pid : parentIds) {
+                    parentDtoMap.put(pid, allDtoMap.get(pid));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量获取被转发原动态失败, parentIds={}", parentIds, e);
+        }
+        return parentDtoMap;
+    }
+
+    /**
+     * 批量组装动态 DTO（视频投稿用：发布者、视频信息、点赞/评论/转发数）
+     */
+    private List<DynamicDTO> buildFeedDTOs(List<Dynamic> records, Set<Long> myFollowingUids, Long currentUid) {
+        List<DynamicDTO> list = new ArrayList<>(records.size());
+        if (CollectionUtils.isEmpty(records)) {
+            return list;
+        }
+        // 批量获取发布者用户信息并填充关注状态
+        List<Long> uids = records.stream().map(Dynamic::getUid).distinct().toList();
+        Map<Long, UserDTO> userMap = new HashMap<>();
+        try {
+            List<UserDTO> users = userFeignApi.getBatchUserInfo(uids);
+            if (!CollectionUtils.isEmpty(users)) {
+                userMap = users.stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toMap(UserDTO::getUid, Function.identity(), (a, b) -> a));
+            }
+        } catch (Exception e) {
+            log.warn("批量获取动态发布者信息失败, uids={}", uids, e);
+        }
+        fillFollowingStatus(userMap, myFollowingUids);
+
+        // 批量获取关联视频信息与视频UP主
+        List<Long> vids = records.stream().map(Dynamic::getVid).filter(Objects::nonNull).distinct().toList();
+        Map<Long, Video> videoMap = new HashMap<>();
+        Map<Long, VideoStat> videoStatMap = new HashMap<>();
+        Map<Long, UserDTO> videoUserMap = new HashMap<>();
+        if (!CollectionUtils.isEmpty(vids)) {
+            try {
+                List<Video> videos = videoMapper.selectBatchIds(vids);
+                if (!CollectionUtils.isEmpty(videos)) {
+                    videoMap = videos.stream()
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toMap(Video::getVid, Function.identity(), (a, b) -> a));
+                }
+            } catch (Exception e) {
+                log.warn("批量获取动态关联视频失败, vids={}", vids, e);
+            }
+            for (Long vid : vids) {
+                try {
+                    videoStatMap.put(vid, videoStatService.getVideoStatByVid(vid));
+                } catch (Exception e) {
+                    log.warn("获取视频统计失败, vid={}", vid, e);
+                }
+            }
+            Set<Long> videoOwnerUids = videoMap.values().stream()
+                    .map(Video::getUid).filter(Objects::nonNull).collect(Collectors.toSet());
+            if (!CollectionUtils.isEmpty(videoOwnerUids)) {
+                try {
+                    List<UserDTO> videoUsers = userFeignApi.getBatchUserInfo(videoOwnerUids.stream().toList());
+                    if (!CollectionUtils.isEmpty(videoUsers)) {
+                        videoUserMap = videoUsers.stream()
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toMap(UserDTO::getUid, Function.identity(), (a, b) -> a));
+                    }
+                } catch (Exception e) {
+                    log.warn("批量获取视频UP主信息失败", e);
+                }
+            }
+            fillFollowingStatus(videoUserMap, myFollowingUids);
+        }
+
+        // 批量回填点赞数/是否已赞/评论数/转发数
+        List<Long> dynamicIds = records.stream().map(Dynamic::getId).filter(Objects::nonNull).toList();
+        Map<Long, Integer> likeCountMap = new HashMap<>();
+        Set<Long> likedSet = new HashSet<>();
+        Map<Long, Long> commentCountMap = new HashMap<>();
+        Map<Long, Long> repostCountMap = new HashMap<>();
+        try {
+            dynamicLikeMapper.selectList(new LambdaQueryWrapper<DynamicLike>()
+                            .select(DynamicLike::getDynamicId)
+                            .in(DynamicLike::getDynamicId, dynamicIds))
+                    .forEach(dl -> likeCountMap.merge(dl.getDynamicId(), 1, Integer::sum));
+            if (currentUid != null) {
+                likedSet = dynamicLikeMapper.selectList(new LambdaQueryWrapper<DynamicLike>()
+                                .select(DynamicLike::getDynamicId)
+                                .eq(DynamicLike::getUid, currentUid)
+                                .in(DynamicLike::getDynamicId, dynamicIds))
+                        .stream().map(DynamicLike::getDynamicId).collect(Collectors.toSet());
+            }
+            commentMapper.selectList(new LambdaQueryWrapper<com.hiiro.entity.Comment>()
+                            .select(com.hiiro.entity.Comment::getDynamicId)
+                            .in(com.hiiro.entity.Comment::getDynamicId, dynamicIds)
+                            .eq(com.hiiro.entity.Comment::getIsDeleted, 0))
+                    .forEach(c -> {
+                        if (c.getDynamicId() != null) {
+                            commentCountMap.merge(c.getDynamicId(), 1L, Long::sum);
+                        }
+                    });
+            dynamicMapper.selectList(new LambdaQueryWrapper<Dynamic>()
+                            .select(Dynamic::getParentId)
+                            .in(Dynamic::getParentId, dynamicIds))
+                    .forEach(dp -> {
+                        if (dp.getParentId() != null) {
+                            repostCountMap.merge(dp.getParentId(), 1L, Long::sum);
+                        }
+                    });
+        } catch (Exception e) {
+            log.warn("批量获取动态点赞/评论/转发信息失败, dynamicIds={}", dynamicIds, e);
+        }
+
+        for (Dynamic d : records) {
+            DynamicDTO dto = convertDynamicToDto(d, userMap, videoMap, videoStatMap, videoUserMap);
+            Long did = d.getId();
+            dto.setLikeCount(likeCountMap.getOrDefault(did, 0));
+            dto.setLiked(likedSet.contains(did));
+            dto.setCommentCount(commentCountMap.getOrDefault(did, 0L));
+            dto.setRepostCount(repostCountMap.getOrDefault(did, 0L));
+            list.add(dto);
+        }
+        return list;
     }
 
     /**

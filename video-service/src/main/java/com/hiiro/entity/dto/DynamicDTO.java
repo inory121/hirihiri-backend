@@ -123,4 +123,10 @@ public class DynamicDTO implements Serializable {
      */
     @Schema(description = "转发数", name = "repostCount")
     private Long repostCount;
+
+    /**
+     * 是否未读（unread-list 接口返回：关注的UP主新投稿且未读过）
+     */
+    @Schema(description = "是否未读", name = "unread")
+    private Boolean unread;
 }

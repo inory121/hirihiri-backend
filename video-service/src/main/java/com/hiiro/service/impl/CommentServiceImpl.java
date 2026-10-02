@@ -750,14 +750,17 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
     /**
      * 评论产生的通知：
-     * 1) 回复某条评论 -> 通知被回复用户（noticeType=reply, bizType=comment）
+     * 1) 回复某条评论   -> 通知被回复用户（noticeType=reply，视频评论 bizType=comment，动态评论 bizType=dynamic）
      * 2) 视频根评论   -> 通知视频UP主（noticeType=reply, bizType=video）
-     * 3) 内容中 @uid  -> 通知被@用户（noticeType=at, bizType=video）
+     * 3) 动态根评论   -> 通知动态作者（noticeType=reply, bizType=dynamic）
+     * 4) 内容中 @uid  -> 通知被@用户（noticeType=at，视频评论 bizType=video，动态评论 bizType=dynamic）
      */
     private void notifyOnComment(Comment comment) {
-        if (comment == null || comment.getVid() == null) return;
+        // 动态评论（dynamicId 有值，vid=0）与视频评论走同一接口，通知按载体区分
+        boolean isDynamicComment = comment != null && comment.getDynamicId() != null && comment.getDynamicId() != 0;
+        if (comment == null || (!isDynamicComment && comment.getVid() == null)) return;
         Long vid = comment.getVid();
-        String extJson = buildVideoExtJson(vid);
+        String extJson = isDynamicComment ? buildDynamicExtJson(comment.getDynamicId()) : buildVideoExtJson(vid);
         String content = limitText(comment.getContent(), 200);
         // B站式：把正文里的 @uid 解析成结构化用户列表随包返回，前端零请求渲染可点击 @提及
         extJson = enrichExtWithMentions(content, extJson);
@@ -796,9 +799,18 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
             }
         }
         extJson = ext.toJSONString();
+        // 动态评论通知统一用 bizType=dynamic（前端据此展示“对我的动态发表了评论”并跳转动态页）
+        String replyBizType = isDynamicComment ? "dynamic" : "comment";
+        String atBizType = isDynamicComment ? "dynamic" : "video";
         if (isReplyToComment) {
             if (comment.getToUserId() != null && !Objects.equals(comment.getToUserId(), selfUid)) {
-                createNotice(comment.getToUserId(), selfUid, "reply", "comment", comment.getId(), content, extJson);
+                createNotice(comment.getToUserId(), selfUid, "reply", replyBizType, comment.getId(), content, extJson);
+            }
+        } else if (isDynamicComment) {
+            // 动态根评论 -> 通知动态作者（bizType=dynamic）
+            Dynamic dynamic = dynamicMapper.selectById(comment.getDynamicId());
+            if (dynamic != null && dynamic.getUid() != null && !Objects.equals(dynamic.getUid(), selfUid)) {
+                createNotice(dynamic.getUid(), selfUid, "reply", "dynamic", comment.getId(), content, extJson);
             }
         } else {
             // 视频根评论 -> 通知视频UP主（bizType=video）
@@ -812,7 +824,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         for (Long atUid : extractMentionUids(comment.getContent())) {
             if (Objects.equals(atUid, selfUid)) continue;
             // 内容中任何 @用户 均生成 at 通知（包括被回复人：他会同时收到 reply 和 at）
-            createNotice(atUid, selfUid, "at", "video", comment.getId(), content, extJson);
+            createNotice(atUid, selfUid, "at", atBizType, comment.getId(), content, extJson);
         }
     }
 
@@ -924,6 +936,16 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         ext.put("videoId", vid);
         if (video.getCoverUrl() != null) ext.put("videoCover", video.getCoverUrl());
         if (video.getTitle() != null) ext.put("videoTitle", video.getTitle());
+        return ext.toJSONString();
+    }
+
+    /**
+     * 构建动态评论通知的扩展 JSON：塞入动态ID（bizId 存的是评论ID，前端跳转动态页时从 extJson 取动态ID）
+     */
+    private String buildDynamicExtJson(Long dynamicId) {
+        if (dynamicId == null) return null;
+        JSONObject ext = new JSONObject();
+        ext.put("dynamicId", dynamicId);
         return ext.toJSONString();
     }
 

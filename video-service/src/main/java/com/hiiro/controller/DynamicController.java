@@ -1,6 +1,7 @@
 package com.hiiro.controller;
 
 import com.hiiro.entity.ResultData;
+import com.hiiro.entity.dto.DynamicDTO;
 import com.hiiro.entity.dto.DynamicPublishDTO;
 import com.hiiro.service.DynamicService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -116,5 +117,52 @@ public class DynamicController {
     public ResultData<Map<String, Object>> toggleLike(@PathVariable("dynamicId") Long dynamicId,
                                                       @RequestHeader("uid") String uid) {
         return dynamicService.toggleLike(dynamicId, Long.parseLong(uid));
+    }
+
+    /**
+     * 未读动态列表：当前用户关注的UP主新发布的视频投稿（带 unread 标记）
+     *
+     * @param myUid 当前登录用户ID（网关从 token 中注入）
+     * @return {records, total}
+     */
+    @Operation(summary = "未读动态列表（关注的UP主新投稿）")
+    @GetMapping("/unread-list")
+    public ResultData<Map<String, Object>> getUnreadList(@RequestHeader(value = "uid", required = false) String myUid) {
+        Long currentUid = (myUid != null && !myUid.isEmpty()) ? Long.parseLong(myUid) : null;
+        return dynamicService.getUnreadList(currentUid);
+    }
+
+    /**
+     * 动态详情（单条）：支持未登录访问，未登录时 liked/isFollowing 为未登录态
+     *
+     * @param dynamicId 动态ID
+     * @param myUid     当前登录用户ID（网关从 token 中注入，可为空）
+     * @return 动态详情DTO（含发布者/视频/点赞/评论/转发数，转发动态含 parent 链）
+     */
+    @Operation(summary = "动态详情")
+    @GetMapping("/{dynamicId}")
+    public ResultData<DynamicDTO> getDetail(@PathVariable("dynamicId") Long dynamicId,
+                                            @RequestHeader(value = "uid", required = false) String myUid) {
+        Long currentUid = (myUid != null && !myUid.isEmpty()) ? Long.parseLong(myUid) : null;
+        return dynamicService.getDynamicDetail(dynamicId, currentUid);
+    }
+
+    /**
+     * 动态「赞与转发」用户列表：合并点赞与转发记录按时间倒序分页（赞/转发分开计数、不去重）
+     *
+     * @param dynamicId 动态ID
+     * @param pageNum   页码（可选，默认 1）
+     * @param pageSize  每页条数（可选，默认 20）
+     * @param myUid     当前登录用户ID（网关从 token 注入，可为空）
+     * @return {records, total, likeCount, repostCount}
+     */
+    @Operation(summary = "动态赞与转发用户列表")
+    @GetMapping("/{dynamicId}/interactions")
+    public ResultData<Map<String, Object>> getInteractions(@PathVariable("dynamicId") Long dynamicId,
+                                                           @RequestParam(name = "pageNum", required = false) Integer pageNum,
+                                                           @RequestParam(name = "pageSize", required = false) Integer pageSize,
+                                                           @RequestHeader(value = "uid", required = false) String myUid) {
+        Long currentUid = (myUid != null && !myUid.isEmpty()) ? Long.parseLong(myUid) : null;
+        return dynamicService.getInteractions(dynamicId, currentUid, pageNum, pageSize);
     }
 }

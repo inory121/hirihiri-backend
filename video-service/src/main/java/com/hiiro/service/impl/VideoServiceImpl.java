@@ -254,7 +254,7 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	}
 
 	/**
-	 * 投稿视频后自动生成投稿动态（type=2）
+	 * 投稿视频后自动生成投稿动态（type=2），并给粉丝发送 dynamic 通知（驱动头部动态红点）
 	 */
 	private void createPublishDynamic(Video video) {
 		try {
@@ -267,6 +267,9 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 			dynamic.setIsTop((byte) 0);
 			dynamic.setCreateTime(LocalDateTime.now());
 			dynamicService.save(dynamic);
+			// 给粉丝发投稿通知（noticeType=dynamic，WebSocket 实时推送未读数）
+			dynamicService.notifyVideoDynamicToFollowers(video.getUid(), dynamic.getId(), video.getVid(),
+					video.getTitle(), video.getCoverUrl());
 		} catch (Exception e) {
 			log.warn("投稿视频自动生成动态失败, vid={}", video.getVid(), e);
 		}
