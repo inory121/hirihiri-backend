@@ -331,6 +331,18 @@ public class FavoriteFolderServiceImpl implements FavoriteFolderService {
         // 构建完整视频信息
         List<Map<String, Object>> videoInfos = buildVideoInfoList(vidList);
 
+        // 回填收藏时间（VideoCollect.create_time），以 collectTime 字段随视频返回，供前端显示“收藏于…”
+        Map<Long, LocalDateTime> collectTimeMap = new HashMap<>();
+        for (VideoCollect c : result.getRecords()) {
+            collectTimeMap.put(c.getVid(), c.getCreateTime());
+        }
+        for (Map<String, Object> infoMap : videoInfos) {
+            Object v = infoMap.get("video");
+            if (v instanceof Video) {
+                infoMap.put("collectTime", collectTimeMap.get(((Video) v).getVid()));
+            }
+        }
+
         // 构建返回结果
         Page<Map<String, Object>> videoPage = new Page<>(pageNum, pageSize, result.getTotal());
         videoPage.setRecords(videoInfos);
