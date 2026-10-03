@@ -25,6 +25,7 @@ public class FileValidationUtils {
         MAGIC_NUMBER_ALLOW_LIST.put(".jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8});
         MAGIC_NUMBER_ALLOW_LIST.put(".png", new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47});
         MAGIC_NUMBER_ALLOW_LIST.put(".gif", new byte[]{0x47, 0x49, 0x46, 0x38});
+        // webp 的文件头为 RIFF....WEBP，"WEBP" 位于第 8 字节，无法用前缀魔数匹配，单独走偏移校验
         MAGIC_NUMBER_ALLOW_LIST.put(".webp", new byte[]{0x57, 0x45, 0x42, 0x50});
         MAGIC_NUMBER_ALLOW_LIST.put(".mp4", new byte[]{0x66, 0x74, 0x79, 0x70});
         MAGIC_NUMBER_ALLOW_LIST.put(".avi", new byte[]{0x52, 0x49, 0x46, 0x46});
@@ -74,6 +75,19 @@ public class FileValidationUtils {
             if (bytesRead < 8 || !(mp4Header[4] == 0x66 && mp4Header[5] == 0x74 &&
                     mp4Header[6] == 0x79 && mp4Header[7] == 0x70)) {
                 throw new IllegalArgumentException("非法的 MP4 文件格式");
+            }
+            return;
+        }
+
+        // 特殊处理 WEBP：前 4 字节为 RIFF，第 8-11 字节为 WEBP
+        if (".webp".equals(fileExtension)) {
+            byte[] webpHeader = new byte[12];
+            int bytesRead = inputStream.read(webpHeader);
+            if (bytesRead < 12 || !(webpHeader[0] == 0x52 && webpHeader[1] == 0x49 &&
+                    webpHeader[2] == 0x46 && webpHeader[3] == 0x46 &&
+                    webpHeader[8] == 0x57 && webpHeader[9] == 0x45 &&
+                    webpHeader[10] == 0x42 && webpHeader[11] == 0x50)) {
+                throw new IllegalArgumentException("非法的 WEBP 文件格式");
             }
             return;
         }
