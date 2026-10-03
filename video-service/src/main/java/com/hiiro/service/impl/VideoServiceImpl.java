@@ -1,5 +1,6 @@
 package com.hiiro.service.impl;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
@@ -40,6 +41,7 @@ import org.springframework.data.elasticsearch.core.query.highlight.HighlightPara
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -89,6 +91,32 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 
 	private static final String HOT_SEARCH_KEY = "search:hot:list";
 	private static final long HOT_SEARCH_EXPIRE_DAYS = 7;
+
+	// 从请求头读取当前登录 uid（网关从 token 注入），未登录/异常返回 null
+	private Long currentUidFromRequest() {
+		try {
+			ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+			if (attrs == null) return null;
+			String uid = attrs.getRequest().getHeader("uid");
+			return (uid != null && !uid.isEmpty()) ? Long.valueOf(uid) : null;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	// 当前用户拉黑的所有 uid（失败降级空集合=不过滤）
+	private Set<Long> fetchBlockedUids(Long currentUid) {
+		if (currentUid == null) return Collections.emptySet();
+		try {
+			ResultData<List<Long>> resp = userFeignApi.getBlockedUids(currentUid);
+			if (resp != null && resp.getData() != null && !resp.getData().isEmpty()) {
+				return new HashSet<>(resp.getData());
+			}
+		} catch (Exception e) {
+			log.warn("获取黑名单失败, uid={}", currentUid, e);
+		}
+		return Collections.emptySet();
+	}
 
 	// 校验并构建分页对象
 	private Page<Video> validateAndBuildPage(Integer pageNum, Integer pageSize) {
@@ -194,9 +222,10 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 		long t0 = System.nanoTime();
 		try {
 			Page<Video> page = validateAndBuildPage(pageNum, pageSize);
-			IPage<Video> videoPage = new LambdaQueryChainWrapper<>(videoMapper)
-					.eq(Video::getStatus, 1)
-					.page(page);
+			Set<Long> blocked = fetchBlockedUids(currentUidFromRequest());
+			LambdaQueryChainWrapper<Video> chain = new LambdaQueryChainWrapper<>(videoMapper).eq(Video::getStatus, 1);
+			if (!blocked.isEmpty()) chain.notIn(Video::getUid, blocked);
+			IPage<Video> videoPage = chain.page(page);
 			return processVideoPage(videoPage);
 		} finally {
 			long ms = (System.nanoTime() - t0) / 1_000_000;
@@ -218,7 +247,10 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 		long t0 = System.nanoTime();
 		try {
 			Page<Video> page = validateAndBuildPage(pageNum, pageSize);
-			IPage<Video> videoPage = new LambdaQueryChainWrapper<>(videoMapper).page(page);
+			Set<Long> blocked = fetchBlockedUids(currentUidFromRequest());
+			LambdaQueryChainWrapper<Video> chain = new LambdaQueryChainWrapper<>(videoMapper);
+			if (!blocked.isEmpty()) chain.notIn(Video::getUid, blocked);
+			IPage<Video> videoPage = chain.page(page);
 			return processVideoPage(videoPage);
 		} finally {
 			long ms = (System.nanoTime() - t0) / 1_000_000;
@@ -387,20 +419,26 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 
 			Highlight highlight = new Highlight(highlightParams, highlightFields);
 
+			Set<Long> blockedUids = fetchBlockedUids(currentUidFromRequest());
 			NativeQuery query = NativeQuery.builder()
-					.withQuery(q -> q.bool(b -> b
-							.should(s -> s.multiMatch(multi -> multi
+					.withQuery(q -> q.bool(b -> {
+							b.should(s -> s.multiMatch(multi -> multi
 									.query(keyword)
 									.fields("title^3", "descr", "tags^2")
 									.type(TextQueryType.Phrase)
 							))
-							.should(s -> s.multiMatch(multi -> multi
+							 .should(s -> s.multiMatch(multi -> multi
 									.query(keyword)
 									.fields("title.pinyin", "descr.pinyin", "tags.pinyin")
 									.type(TextQueryType.Phrase)
 							))
-							.minimumShouldMatch("1")
-					))
+							 .minimumShouldMatch("1");
+							if (!blockedUids.isEmpty()) {
+								List<FieldValue> blockVals = blockedUids.stream().map(FieldValue::of).collect(Collectors.toList());
+								b.mustNot(mn -> mn.terms(t -> t.field("uid").terms(tv -> tv.value(blockVals))));
+							}
+							return b;
+					}))
 					.withSort(s -> s.field(f -> f
 							.field("_score")
 							.order(SortOrder.Desc)
@@ -623,12 +661,13 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 	@Override
 	@Timed(value = "video.by_uid", percentiles = {0.9, 0.95, 0.99})
 	@SentinelResource(value = "video_by_uid", fallback = "listFallback", fallbackClass = SentinelFallbackHandlers.class, blockHandler = "listBlocked", blockHandlerClass = SentinelFallbackHandlers.class)
-	public ResultData<Map<String, Object>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize, String order) {
+	public ResultData<Map<String, Object>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize, String order, String keyword) {
 		long t0 = System.nanoTime();
 		try {
 			if (uid == null || uid <= 0) {
 				return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "用户ID无效");
 			}
+			String kw = (keyword == null) ? "" : keyword.trim();
 			Page<Video> page = validateAndBuildPage(pageNum, pageSize);
 			IPage<Video> videoPage;
 			// 白名单校验，防止 SQL 注入
@@ -636,18 +675,20 @@ public class VideoServiceImpl extends ServiceImpl<VideoMapper, Video> implements
 			if (safeOrder != null) {
 				// 按 view/favorite 排序需 join video_stat，使用自定义 SQL
 				long offset = (page.getCurrent() - 1) * page.getSize();
-				List<Video> records = videoMapper.selectUserVideosWithStatOrder(uid, offset, (int) page.getSize(), safeOrder);
-				long total = videoMapper.countUserVideos(uid);
+				List<Video> records = videoMapper.selectUserVideosWithStatOrder(uid, offset, (int) page.getSize(), safeOrder, kw);
+				long total = videoMapper.countUserVideos(uid, kw);
 				page.setRecords(records);
 				page.setTotal(total);
 				videoPage = page;
 			} else {
 				// 默认按创建时间倒序
-				videoPage = new LambdaQueryChainWrapper<>(videoMapper)
+				LambdaQueryChainWrapper<Video> chain = new LambdaQueryChainWrapper<>(videoMapper)
 						.eq(Video::getUid, uid)
-						.eq(Video::getStatus, 1)
-						.orderByDesc(Video::getCreateTime)
-						.page(page);
+						.eq(Video::getStatus, 1);
+				if (!kw.isEmpty()) {
+					chain.and(w -> w.like(Video::getTitle, kw).or().like(Video::getDescr, kw));
+				}
+				videoPage = chain.orderByDesc(Video::getCreateTime).page(page);
 			}
 			ResultData<List<Map<String, Object>>> result = processVideoPage(videoPage);
 			if (result.getCode() != 200) {

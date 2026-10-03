@@ -64,9 +64,10 @@ public class DynamicController {
                                                           @RequestParam(name = "pageSize", required = false) Integer pageSize,
                                                           @RequestParam(name = "type", required = false) Integer type,
                                                           @RequestParam(name = "uid", required = false) Long uid,
+                                                          @RequestParam(name = "keyword", required = false) String keyword,
                                                           @RequestHeader(value = "uid", required = false) String myUid) {
         Long currentUid = (myUid != null && !myUid.isEmpty()) ? Long.parseLong(myUid) : null;
-        return dynamicService.getDynamicList(pageNum, pageSize, type, uid, currentUid);
+        return dynamicService.getDynamicList(pageNum, pageSize, type, uid, currentUid, keyword);
     }
 
     /**

@@ -56,6 +56,25 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     @Resource
     UserFeignApi userFeignApi;
 
+    /**
+     * 获取当前登录用户拉黑的 uid 集合（未登录或调用失败返回空集）
+     * 用于在评论列表中隐藏被拉黑者发的评论/回复
+     */
+    private Set<Long> fetchBlockedUids(Long currentUid) {
+        if (currentUid == null) {
+            return Collections.emptySet();
+        }
+        try {
+            ResultData<List<Long>> resp = userFeignApi.getBlockedUids(currentUid);
+            if (resp != null && resp.getData() != null && !resp.getData().isEmpty()) {
+                return new HashSet<>(resp.getData());
+            }
+        } catch (Exception e) {
+            log.warn("获取黑名单失败, uid={}", currentUid, e);
+        }
+        return Collections.emptySet();
+    }
+
     @Override
     public ResultData<CommentPageDTO> getComments(Long vid, String sort, int page, int pageSize, Long currentUid) {
         long start = System.currentTimeMillis();
@@ -63,11 +82,17 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         Video video = videoMapper.selectById(vid);
         Long videoUpUid = video != null ? video.getUid() : null;
 
+        // 当前用户拉黑的 uid：其评论对当前用户隐藏
+        Set<Long> blockedUids = fetchBlockedUids(currentUid);
+
         // 1. 构建根评论查询条件
         LambdaQueryWrapper<Comment> rootWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getVid, vid)
                 .eq(Comment::getIsDeleted, 0)
                 .eq(Comment::getRootId, 0); // 只查根评论
+        if (!blockedUids.isEmpty()) {
+            rootWrapper.notIn(Comment::getUid, blockedUids);
+        }
 
         // 根据排序方式添加排序条件（置顶评论始终排最前）
         rootWrapper.orderByDesc(Comment::getIsTop);
@@ -84,10 +109,14 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         List<Comment> rootComments = pagedRoots.getRecords();
         long rootTotal = pagedRoots.getTotal(); // 根评论总数，用于分页
 
-        // 查询该视频全部评论总数（根评论+回复），用于前端展示
-        long total = commentMapper.selectCount(new LambdaQueryWrapper<Comment>()
+        // 查询该视频全部评论总数（根评论+回复），用于前端展示；同样排除被拉黑者
+        LambdaQueryWrapper<Comment> countWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getVid, vid)
-                .eq(Comment::getIsDeleted, 0));
+                .eq(Comment::getIsDeleted, 0);
+        if (!blockedUids.isEmpty()) {
+            countWrapper.notIn(Comment::getUid, blockedUids);
+        }
+        long total = commentMapper.selectCount(countWrapper);
 
         if (rootComments.isEmpty()) {
             CommentPageDTO emptyResult = new CommentPageDTO(new ArrayList<>(), total, page, pageSize, false);
@@ -96,11 +125,15 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
         // 3. 查询当前页根评论的所有子回复
         List<Long> rootIds = rootComments.stream().map(Comment::getId).collect(Collectors.toList());
-        List<Comment> replies = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+        LambdaQueryWrapper<Comment> replyWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getVid, vid)
                 .eq(Comment::getIsDeleted, 0)
-                .in(Comment::getRootId, rootIds) // 属于当前页根评论的回复
-                .orderByAsc(Comment::getCreateTime));
+                .in(Comment::getRootId, rootIds); // 属于当前页根评论的回复
+        if (!blockedUids.isEmpty()) {
+            replyWrapper.notIn(Comment::getUid, blockedUids);
+        }
+        replyWrapper.orderByAsc(Comment::getCreateTime);
+        List<Comment> replies = commentMapper.selectList(replyWrapper);
 
         // 4. 合并根评论和回复，构建评论树
         List<Comment> allComments = new ArrayList<>(rootComments);
@@ -198,11 +231,17 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         Dynamic dynamic = dynamicMapper.selectById(dynamicId);
         Long dynamicUpUid = dynamic != null ? dynamic.getUid() : null;
 
+        // 当前用户拉黑的 uid：其评论对当前用户隐藏
+        Set<Long> blockedUids = fetchBlockedUids(currentUid);
+
         // 1. 构建根评论查询条件（按 dynamicId 过滤）
         LambdaQueryWrapper<Comment> rootWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getDynamicId, dynamicId)
                 .eq(Comment::getIsDeleted, 0)
                 .eq(Comment::getRootId, 0); // 只查根评论
+        if (!blockedUids.isEmpty()) {
+            rootWrapper.notIn(Comment::getUid, blockedUids);
+        }
 
         // 根据排序方式添加排序条件（置顶评论始终排最前）
         rootWrapper.orderByDesc(Comment::getIsTop);
@@ -219,10 +258,14 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         List<Comment> rootComments = pagedRoots.getRecords();
         long rootTotal = pagedRoots.getTotal(); // 根评论总数，用于分页
 
-        // 查询该动态全部评论总数（根评论+回复），用于前端展示
-        long total = commentMapper.selectCount(new LambdaQueryWrapper<Comment>()
+        // 查询该动态全部评论总数（根评论+回复），用于前端展示；同样排除被拉黑者
+        LambdaQueryWrapper<Comment> countWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getDynamicId, dynamicId)
-                .eq(Comment::getIsDeleted, 0));
+                .eq(Comment::getIsDeleted, 0);
+        if (!blockedUids.isEmpty()) {
+            countWrapper.notIn(Comment::getUid, blockedUids);
+        }
+        long total = commentMapper.selectCount(countWrapper);
 
         if (rootComments.isEmpty()) {
             CommentPageDTO emptyResult = new CommentPageDTO(new ArrayList<>(), total, page, pageSize, false);
@@ -231,11 +274,15 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
         // 3. 查询当前页根评论的所有子回复
         List<Long> rootIds = rootComments.stream().map(Comment::getId).collect(Collectors.toList());
-        List<Comment> replies = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+        LambdaQueryWrapper<Comment> replyWrapper = new LambdaQueryWrapper<Comment>()
                 .eq(Comment::getDynamicId, dynamicId)
                 .eq(Comment::getIsDeleted, 0)
-                .in(Comment::getRootId, rootIds) // 属于当前页根评论的回复
-                .orderByAsc(Comment::getCreateTime));
+                .in(Comment::getRootId, rootIds); // 属于当前页根评论的回复
+        if (!blockedUids.isEmpty()) {
+            replyWrapper.notIn(Comment::getUid, blockedUids);
+        }
+        replyWrapper.orderByAsc(Comment::getCreateTime);
+        List<Comment> replies = commentMapper.selectList(replyWrapper);
 
         // 4. 合并根评论和回复，构建评论树
         List<Comment> allComments = new ArrayList<>(rootComments);
@@ -467,6 +514,20 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     @Transactional
     @Override
     public ResultData<CommentDTO> sendComment(Comment comment) {
+        Long authorUid = comment.getUid();
+        // 拉黑拦截：被资源投稿者（视频UP主/动态作者）拉黑的用户不能在其内容下评论
+        Long ownerUid = null;
+        if (comment.getVid() != null) {
+            Video ownerVideo = videoMapper.selectById(comment.getVid());
+            ownerUid = ownerVideo != null ? ownerVideo.getUid() : null;
+        } else if (comment.getDynamicId() != null) {
+            Dynamic ownerDynamic = dynamicMapper.selectById(comment.getDynamicId());
+            ownerUid = ownerDynamic != null ? ownerDynamic.getUid() : null;
+        }
+        if (ownerUid != null && !ownerUid.equals(authorUid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(ownerUid, authorUid).getData())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
+        }
         if (comment.getParentId() == null) {
             comment.setParentId(0);
         }
@@ -503,6 +564,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
                 }
             }
             comment.setToUserId(derived != null ? derived : 0L);
+        }
+        // 拉黑拦截：被回复者拉黑的用户不能回复其评论
+        Long toUid = comment.getToUserId();
+        if (toUid != null && toUid != 0L && !toUid.equals(authorUid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(toUid, authorUid).getData())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
         }
         // 视频评论需同步更新视频统计；动态评论(vid为空)仅插入评论本身
         boolean inserted = commentMapper.insert(comment) == 1;
@@ -543,6 +610,11 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         Comment comment = commentMapper.selectById(commentId);
         if (comment == null || comment.getIsDeleted() == 1) {
             return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "评论不存在");
+        }
+        // 拉黑拦截：被评论作者拉黑的用户不能点赞/取消点赞该评论
+        if (comment.getUid() != null && !comment.getUid().equals(uid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(comment.getUid(), uid).getData())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
         }
 
         CommentLike existing = commentLikeMapper.selectOne(
@@ -604,6 +676,11 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         Comment comment = commentMapper.selectById(commentId);
         if (comment == null || comment.getIsDeleted() == 1) {
             return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "评论不存在");
+        }
+        // 拉黑拦截：被评论作者拉黑的用户不能点踩/取消点踩该评论
+        if (comment.getUid() != null && !comment.getUid().equals(uid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(comment.getUid(), uid).getData())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
         }
 
         CommentDislike existing = commentDislikeMapper.selectOne(
@@ -845,6 +922,11 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     private void createNotice(Long receiveUid, Long actorUid, String noticeType,
                               String bizType, Long bizId, String content, String extJson) {
         if (receiveUid == null) return;
+        // 拉黑拦截：接收方已拉黑发起者则不发送通知（reply/at/like 通知的统一入口）
+        if (actorUid != null && !actorUid.equals(receiveUid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(receiveUid, actorUid).getData())) {
+            return;
+        }
         MessageNoticeCreateDTO dto = new MessageNoticeCreateDTO();
         dto.setReceiveUid(receiveUid);
         dto.setActorUid(actorUid);

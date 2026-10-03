@@ -181,6 +181,11 @@ public class VideoStatServiceImpl extends ServiceImpl<VideoStatMapper, VideoStat
     }
 
     @Override
+    public void incrementShare(Long vid) {
+        incrementBySql(vid, "share");
+    }
+
+    @Override
     public void incrementDislike(Long vid) {
         incrementBySql(vid, "dislike");
     }

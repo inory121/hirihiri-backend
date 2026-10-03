@@ -106,9 +106,10 @@ public interface VideoService extends IService<Video> {
      * @param uid      用户ID
      * @param pageNum  分页页数
      * @param pageSize 分页大小
+     * @param keyword  关键字（为空则不过滤，匹配标题/简介）
      * @return ResultData对象
      */
-    ResultData<Map<String, Object>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize, String order);
+    ResultData<Map<String, Object>> getVideosByUid(Long uid, Integer pageNum, Integer pageSize, String order, String keyword);
 
     /**
      * 获取用户置顶视频

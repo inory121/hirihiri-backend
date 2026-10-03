@@ -133,6 +133,13 @@ public interface VideoStatService extends IService<VideoStat> {
     void decrementFavorite(Long vid);
 
     /**
+     * 视频的分享数+1
+     *
+     * @param vid 视频ID
+     */
+    void incrementShare(Long vid);
+
+    /**
      * 视频的点踩数+1
      *
      * @param vid 视频ID

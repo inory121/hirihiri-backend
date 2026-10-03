@@ -110,7 +110,34 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
             if (parent == null) {
                 return ResultData.fail(ResultCodeEnum.NOT_FOUND, "被转发的动态不存在");
             }
+            // 拉黑拦截：被转发动态的作者已拉黑当前用户则不能转发（自己的动态不受限）
+            Long parentUid = parent.getUid();
+            if (parentUid != null && !parentUid.equals(uid)
+                    && Boolean.TRUE.equals(userFeignApi.isBlocked(parentUid, uid).getData())) {
+                return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法转发该动态");
+            }
             // 禁止转发自己的转发（防止循环嵌套过深，这里简单处理不禁止多级，允许）
+        }
+
+        // 分享视频（type=1）：若视频UP主已拉黑当前用户，则不允许分享其视频
+        if (type == 1 && dto.getVid() != null) {
+            Video shareVideo = videoMapper.selectOne(new LambdaQueryWrapper<Video>().eq(Video::getVid, dto.getVid()));
+            Long videoOwnerUid = shareVideo != null ? shareVideo.getUid() : null;
+            if (videoOwnerUid != null && !videoOwnerUid.equals(uid)
+                    && Boolean.TRUE.equals(userFeignApi.isBlocked(videoOwnerUid, uid).getData())) {
+                return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法分享该视频");
+            }
+        }
+
+        // 分享去重判定：必须在 save 之前统计，避免把本次动态自己算进去。
+        // 若该 (uid, vid) 之前已发过 type=1 分享动态，则本次不重复计入 video_stat.share
+        boolean firstShareOfVideo = false;
+        if (type == 1 && dto.getVid() != null) {
+            long existedShares = this.count(new LambdaQueryWrapper<Dynamic>()
+                    .eq(Dynamic::getUid, uid)
+                    .eq(Dynamic::getType, (byte) 1)
+                    .eq(Dynamic::getVid, dto.getVid()));
+            firstShareOfVideo = existedShares == 0;
         }
 
         Dynamic dynamic = new Dynamic();
@@ -143,6 +170,22 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
                     video != null ? video.getCoverUrl() : null);
         }
         
+        // 分享视频动态（type=1）：首次分享该视频才让 video_stat.share +1（同人对同视频去重）；并发放「每日分享视频」经验
+        if (type == 1) {
+            if (firstShareOfVideo && dto.getVid() != null) {
+                try {
+                    videoStatService.incrementShare(dto.getVid());
+                } catch (Exception e) {
+                    log.warn("分享数自增失败, vid={}", dto.getVid(), e);
+                }
+            }
+            try {
+                userFeignApi.addExp(uid, "share", 5);
+            } catch (Exception e) {
+                log.warn("分享视频经验发放失败, uid={}", uid, e);
+            }
+        }
+
         return ResultData.success("发布成功");
     }
 
@@ -187,6 +230,10 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
         }
         for (Long atUid : atUids) {
             try {
+                // 被@用户已拉黑发起者则不发送 @ 通知
+                if (Boolean.TRUE.equals(userFeignApi.isBlocked(atUid, selfUid).getData())) {
+                    continue;
+                }
                 MessageNoticeCreateDTO notice = new MessageNoticeCreateDTO();
                 notice.setReceiveUid(atUid);
                 notice.setActorUid(selfUid);
@@ -201,8 +248,24 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
         }
     }
 
+    // 当前用户拉黑的所有 uid（失败降级空集合=不过滤）
+    private Set<Long> fetchBlockedUids(Long currentUid) {
+        if (currentUid == null) {
+            return Collections.emptySet();
+        }
+        try {
+            ResultData<List<Long>> resp = userFeignApi.getBlockedUids(currentUid);
+            if (resp != null && resp.getData() != null && !resp.getData().isEmpty()) {
+                return new HashSet<>(resp.getData());
+            }
+        } catch (Exception e) {
+            log.warn("获取黑名单失败, uid={}", currentUid, e);
+        }
+        return Collections.emptySet();
+    }
+
     @Override
-    public ResultData<Map<String, Object>> getDynamicList(Integer pageNum, Integer pageSize, Integer type, Long uid, Long currentUid) {
+    public ResultData<Map<String, Object>> getDynamicList(Integer pageNum, Integer pageSize, Integer type, Long uid, Long currentUid, String keyword) {
         if (pageNum == null || pageNum < 1) {
             pageNum = 1;
         }
@@ -233,7 +296,18 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
         if (uid != null) {
             wrapper.eq(Dynamic::getUid, uid);
         }
+        // 空间内关键字搜索：匹配标题/正文（keyword 为空则不过滤）
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = keyword.trim();
+            wrapper.and(w -> w.like(Dynamic::getTitle, kw).or().like(Dynamic::getContent, kw));
+        }
         wrapper.orderByDesc(Dynamic::getIsTop).orderByDesc(Dynamic::getCreateTime);
+
+        // 隐藏「我拉黑的人」发布的动态（方向：当前用户拉黑的 uid）
+        Set<Long> blockedUids = fetchBlockedUids(currentUid);
+        if (!blockedUids.isEmpty()) {
+            wrapper.notIn(Dynamic::getUid, blockedUids);
+        }
 
         Page<Dynamic> page = this.page(new Page<>(pageNum, pageSize), wrapper);
         List<Dynamic> records = page.getRecords();
@@ -398,6 +472,11 @@ public class DynamicServiceImpl extends ServiceImpl<DynamicMapper, Dynamic> impl
         Dynamic dynamic = dynamicMapper.selectById(dynamicId);
         if (dynamic == null) {
             return ResultData.fail(ResultCodeEnum.NOT_FOUND, "动态不存在");
+        }
+        // 拉黑拦截：被动态作者拉黑的用户不能点赞/取消点赞该动态
+        if (dynamic.getUid() != null && !dynamic.getUid().equals(uid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(dynamic.getUid(), uid).getData())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
         }
         // 校验当前用户是否点赞过
         DynamicLike existing = dynamicLikeMapper.selectOne(

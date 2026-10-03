@@ -35,9 +35,10 @@ public interface DynamicService extends IService<Dynamic> {
      * @param type       类型 0全部 1视频投稿
      * @param uid        发布者UID过滤（null表示全部）
      * @param currentUid 当前登录用户UID（用于填充isFollowing，null表示未登录）
+     * @param keyword    关键字（为空则不过滤，匹配标题/正文）
      * @return 动态列表 {records, total}
      */
-    ResultData<Map<String, Object>> getDynamicList(Integer pageNum, Integer pageSize, Integer type, Long uid, Long currentUid);
+    ResultData<Map<String, Object>> getDynamicList(Integer pageNum, Integer pageSize, Integer type, Long uid, Long currentUid, String keyword);
 
     /**
      * 分页获取发过动态的UP主列表（按最近发动态时间倒序）

@@ -21,32 +21,37 @@ import java.util.List;
 public interface VideoMapper extends BaseMapper<Video> {
 
     /**
-     * 按用户ID分页查询投稿视频，支持按播放量/收藏量排序（需 join video_stat）
+     * 按用户ID分页查询投稿视频，支持按播放量/收藏量排序（需 join video_stat），并支持标题/简介关键字过滤
      *
      * @param uid      用户ID
      * @param offset   偏移量
      * @param pageSize 每页大小
      * @param order    排序字段：view / favorite
+     * @param keyword  关键字（为空则不过滤）
      * @return 视频列表
      */
     @Select("SELECT v.* FROM video v " +
             "LEFT JOIN video_stat vs ON v.vid = vs.vid " +
             "WHERE v.uid = #{uid} AND v.status = 1 " +
+            "AND (#{keyword} IS NULL OR #{keyword} = '' OR v.title LIKE CONCAT('%', #{keyword}, '%') OR v.descr LIKE CONCAT('%', #{keyword}, '%')) " +
             "ORDER BY vs.${order} DESC, v.create_time DESC " +
             "LIMIT #{offset}, #{pageSize}")
     List<Video> selectUserVideosWithStatOrder(@Param("uid") Long uid,
                                               @Param("offset") long offset,
                                               @Param("pageSize") int pageSize,
-                                              @Param("order") String order);
+                                              @Param("order") String order,
+                                              @Param("keyword") String keyword);
 
     /**
-     * 按用户ID查询投稿视频总数（用于分页计算）
+     * 按用户ID查询投稿视频总数（用于分页计算），支持关键字过滤
      *
-     * @param uid 用户ID
+     * @param uid     用户ID
+     * @param keyword 关键字（为空则不过滤）
      * @return 总数
      */
-    @Select("SELECT COUNT(*) FROM video WHERE uid = #{uid} AND status = 1")
-    long countUserVideos(@Param("uid") Long uid);
+    @Select("SELECT COUNT(*) FROM video WHERE uid = #{uid} AND status = 1 " +
+            "AND (#{keyword} IS NULL OR #{keyword} = '' OR title LIKE CONCAT('%', #{keyword}, '%') OR descr LIKE CONCAT('%', #{keyword}, '%'))")
+    long countUserVideos(@Param("uid") Long uid, @Param("keyword") String keyword);
 
     /**
      * 热度分增量候选：近期有互动 或 仍在衰减窗口内的新建视频

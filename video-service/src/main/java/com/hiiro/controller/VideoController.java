@@ -252,8 +252,9 @@ public class VideoController {
     public ResultData<Map<String, Object>> getVideosByUid(@PathVariable("uid") Long uid,
                                                            @RequestParam(name = "pageNum", required = false) Integer pageNum,
                                                            @RequestParam(name = "pageSize", required = false) Integer pageSize,
-                                                           @RequestParam(name = "order", required = false, defaultValue = "date") String order) {
-        return videoService.getVideosByUid(uid, pageNum, pageSize, order);
+                                                           @RequestParam(name = "order", required = false, defaultValue = "date") String order,
+                                                           @RequestParam(name = "keyword", required = false) String keyword) {
+        return videoService.getVideosByUid(uid, pageNum, pageSize, order, keyword);
     }
 
     @Operation(summary = "获取用户视频统计数据")
