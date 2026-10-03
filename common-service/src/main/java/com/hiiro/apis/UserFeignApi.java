@@ -31,6 +31,19 @@ public interface UserFeignApi {
     
     @GetMapping("/api/follow/follower-uids/{uid}")
     ResultData<List<Long>> getFollowerUids(@PathVariable("uid") Long uid);
+
+    /**
+     * 获取指定用户拉黑的全部 uid（供隐藏被拉黑者评论）
+     */
+    @GetMapping("/api/user/block/blocked-uids/{uid}")
+    ResultData<List<Long>> getBlockedUids(@PathVariable("uid") Long uid);
+
+    /**
+     * 判断 blockerUid 是否拉黑了 blockedUid（供写路径拦截）
+     */
+    @GetMapping("/api/user/block/is-blocked")
+    ResultData<Boolean> isBlocked(@RequestParam("blockerUid") Long blockerUid,
+                                  @RequestParam("blockedUid") Long blockedUid);
     
     @GetMapping("/api/message/internal/notice/unread-biz-ids")
     ResultData<List<Long>> getUnreadNoticeBizIds(@RequestParam("receiveUid") Long receiveUid,

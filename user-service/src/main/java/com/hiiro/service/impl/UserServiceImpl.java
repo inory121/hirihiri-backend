@@ -18,6 +18,7 @@ import com.hiiro.entity.UserDailyCoin;
 import com.hiiro.entity.document.UserDocument;
 import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
+import com.hiiro.entity.dto.UserProfileDTO;
 import com.hiiro.mapper.FollowMapper;
 import com.hiiro.mapper.UserExpDailyMapper;
 import com.hiiro.mapper.UserDTOMapper;
@@ -298,6 +299,78 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         } else {
             return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新用户信息失败");
         }
+    }
+
+    /**
+     * 更新当前登录用户的公开资料（字段白名单：昵称/头像/背景/性别/个性签名）
+     * 仅写入非 null 字段；username / password / role / state / auth / exp / coin / vip 一律不可改
+     *
+     * @param uid 当前登录用户 uid
+     * @param dto 资料更新请求
+     * @return ResultData对象，data 为更新后的用户信息
+     */
+    @Transactional
+    @Override
+    public ResultData<UserDTO> updateOwnProfile(Long uid, UserProfileDTO dto) {
+        if (uid == null || dto == null) {
+            return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "参数不能为空");
+        }
+        User user = userMapper.selectById(uid);
+        if (user == null) {
+            return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "用户不存在");
+        }
+
+        boolean changed = false;
+        if (dto.getNickname() != null) {
+            String nickname = dto.getNickname().trim();
+            if (nickname.isEmpty() || nickname.length() > 50) {
+                return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "昵称长度需在1-50之间");
+            }
+            user.setNickname(nickname);
+            changed = true;
+        }
+        if (dto.getDescription() != null) {
+            String description = dto.getDescription().trim();
+            if (description.length() > 100) {
+                return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "个性签名长度不能超过100");
+            }
+            user.setDescription(description);
+            changed = true;
+        }
+        if (dto.getAvatar() != null) {
+            String avatar = dto.getAvatar().trim();
+            if (avatar.length() > 500) {
+                return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "头像地址过长");
+            }
+            user.setAvatar(avatar);
+            changed = true;
+        }
+        if (dto.getBackground() != null) {
+            String background = dto.getBackground().trim();
+            if (background.length() > 500) {
+                return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "背景图地址过长");
+            }
+            user.setBackground(background);
+            changed = true;
+        }
+        if (dto.getSex() != null) {
+            byte sex = dto.getSex();
+            if (sex < 0 || sex > 2) {
+                return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "性别取值不合法");
+            }
+            user.setSex(sex);
+            changed = true;
+        }
+
+        if (!changed) {
+            return ResultData.success(getUserByUid(uid), "无需要更新的内容");
+        }
+        if (userMapper.updateById(user) != 1) {
+            return ResultData.fail(ResultCodeEnum.INTERNAL_SERVER_ERROR, "更新用户资料失败");
+        }
+        // 同步 ES 并清除 Redis 用户缓存，随后重新加载会回写最新缓存
+        syncUserToEsAndEvictCache(user);
+        return ResultData.success(getUserByUid(uid), "更新成功");
     }
 
     /**
@@ -719,12 +792,45 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 daily.setUpdateTime(LocalDateTime.now());
                 userExpDailyMapper.insert(daily);
             } else {
+                // user_exp_daily 为复合主键 (uid,date,exp_type) 且实体无 @TableId，updateById 不可用，改用条件更新
                 daily.setExpGain(used + gain);
                 daily.setUpdateTime(LocalDateTime.now());
-                userExpDailyMapper.updateById(daily);
+                userExpDailyMapper.update(null,
+                        Wrappers.<UserExpDaily>lambdaUpdate()
+                                .eq(UserExpDaily::getUid, uid)
+                                .eq(UserExpDaily::getDate, today)
+                                .eq(UserExpDaily::getExpType, "coin")
+                                .set(UserExpDaily::getExpGain, used + gain)
+                                .set(UserExpDaily::getUpdateTime, LocalDateTime.now()));
             }
         }
         return ResultData.success(gain);
+    }
+
+    /**
+     * 获取当前用户今日各类型每日奖励已获得经验（无记录的类型返回 0）
+     *
+     * @param uid 当前登录用户 uid
+     * @return ResultData对象，data 形如 {login:0|5, watch:0|5, vip_watch:0|10, share:0|5, coin:0..50}
+     */
+    @Override
+    public ResultData<Map<String, Integer>> getDailyExp(Long uid) {
+        Map<String, Integer> result = new HashMap<>();
+        for (String type : new String[]{"login", "watch", "vip_watch", "share", "coin"}) {
+            result.put(type, 0);
+        }
+        if (uid == null) {
+            return ResultData.success(result);
+        }
+        List<UserExpDaily> todayList = userExpDailyMapper.selectList(
+                Wrappers.<UserExpDaily>lambdaQuery()
+                        .eq(UserExpDaily::getUid, uid)
+                        .eq(UserExpDaily::getDate, LocalDate.now())
+        );
+        for (UserExpDaily item : todayList) {
+            result.put(item.getExpType(), item.getExpGain() == null ? 0 : item.getExpGain());
+        }
+        return ResultData.success(result);
     }
 
 }

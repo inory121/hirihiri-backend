@@ -5,6 +5,7 @@ import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
 import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
+import com.hiiro.entity.dto.UserProfileDTO;
 import com.hiiro.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -187,6 +188,32 @@ public class UserController {
     @PreAuthorize("@accessControl.isInternalRequest() || hasRole('ROLE_SUPER_ADMIN')")
     public ResultData<String> updateUserById(@RequestBody User user) {
         return userService.updateUserById(user);
+    }
+
+    /**
+     * 当前登录用户自助修改公开资料（昵称/头像/背景/性别/个性签名）
+     *
+     * @param uid 当前登录用户 uid（网关注入，客户端传入的同名头已被剔除，不可伪造）
+     * @param dto 资料更新请求
+     * @return ResultData对象，data 为更新后的用户信息
+     */
+    @Operation(summary = "更新个人资料")
+    @PostMapping("/profile")
+    public ResultData<UserDTO> updateProfile(@RequestHeader("uid") String uid,
+                                            @RequestBody UserProfileDTO dto) {
+        return userService.updateOwnProfile(Long.parseLong(uid), dto);
+    }
+
+    /**
+     * 获取当前用户今日各类型每日奖励已获得经验（个人中心每日奖励卡片）
+     *
+     * @param uid 当前登录用户 uid（网关注入）
+     * @return ResultData对象，data 形如 {login, watch, vip_watch, share, coin}
+     */
+    @Operation(summary = "获取今日每日奖励完成情况")
+    @GetMapping("/exp/daily")
+    public ResultData<Map<String, Integer>> getDailyExp(@RequestHeader("uid") String uid) {
+        return userService.getDailyExp(Long.parseLong(uid));
     }
 
     /**

@@ -42,6 +42,18 @@ public class UserFeignFallbackFactory implements FallbackFactory<UserFeignApi> {
             }
 
             @Override
+            public ResultData<List<Long>> getBlockedUids(Long uid) {
+                // 降级：视为无黑名单，不隐藏任何评论
+                return ResultData.success(Collections.emptyList());
+            }
+
+            @Override
+            public ResultData<Boolean> isBlocked(Long blockerUid, Long blockedUid) {
+                // 降级：默认未拉黑，不阻断正常互动
+                return ResultData.success(false);
+            }
+
+            @Override
             public ResultData<List<Long>> getUnreadNoticeBizIds(Long receiveUid, String noticeType, String bizType, Integer limit) {
                 return ResultData.success(Collections.emptyList());
             }

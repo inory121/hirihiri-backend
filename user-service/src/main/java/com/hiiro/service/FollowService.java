@@ -14,6 +14,14 @@ public interface FollowService extends IService<Follow> {
 
     boolean isFollowing(Long followerUid, Long followingUid);
 
+    /**
+     * 删除两个用户之间任意方向的关注关系（用于拉黑时自动双向取关）
+     *
+     * @param uidA 用户A uid
+     * @param uidB 用户B uid
+     */
+    void removeFollowBetween(Long uidA, Long uidB);
+
     ResultData<HashMap<String, Long>> getFollowCount(Long uid);
 
     ResultData<List<UserDTO>> getFollowers(Long uid, Integer pageNum, Integer pageSize, Long currentUid);

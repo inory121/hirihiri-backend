@@ -5,6 +5,7 @@ import com.hiiro.entity.ResultData;
 import com.hiiro.entity.User;
 import com.hiiro.entity.dto.RegisterDTO;
 import com.hiiro.entity.dto.UserDTO;
+import com.hiiro.entity.dto.UserProfileDTO;
 
 import java.util.HashMap;
 import java.util.List;
@@ -75,6 +76,16 @@ public interface UserService extends IService<User> {
      * @return ResultData对象
      */
     ResultData<String> updateUserById(User user);
+
+    /**
+     * 更新当前登录用户的公开资料（字段白名单：昵称/头像/背景/性别/个性签名）
+     * username 等敏感字段不在此接口可改范围内
+     *
+     * @param uid 当前登录用户 uid（由网关从 token 解析后注入，可信）
+     * @param dto 资料更新请求
+     * @return ResultData对象，data 为更新后的用户信息
+     */
+    ResultData<UserDTO> updateOwnProfile(Long uid, UserProfileDTO dto);
 
     /**
      * 用户登出
@@ -149,4 +160,12 @@ public interface UserService extends IService<User> {
      * @return 实际增加的经验值（当天该类型已发过则返回 0）
      */
     ResultData<Integer> addExp(Long uid, String type, Integer amount);
+
+    /**
+     * 获取当前用户今日各类型每日奖励已获得经验（个人中心每日奖励卡片展示用）
+     *
+     * @param uid 当前登录用户 uid
+     * @return ResultData对象，data 形如 {login:0|5, watch:0|5, vip_watch:0|10, share:0|5, coin:0..50}
+     */
+    ResultData<Map<String, Integer>> getDailyExp(Long uid);
 }

@@ -7,9 +7,11 @@ import com.hiiro.entity.ResultData;
 import com.hiiro.entity.dto.UserDTO;
 import com.hiiro.mapper.FollowMapper;
 import com.hiiro.service.FollowService;
+import com.hiiro.service.UserBlockService;
 import com.hiiro.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,6 +26,11 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
 
     @Resource
     private UserService userService;
+
+    // 拉黑校验用：UserBlockServiceImpl 依赖 FollowService，此处反向注入用 @Lazy 打破循环依赖
+    @Lazy
+    @Resource
+    private UserBlockService userBlockService;
 
     /**
      * 关注 / 取消关注
@@ -54,6 +61,10 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
                     .remove();
             return ResultData.success("取消关注成功");
         } else {
+            // 拉黑拦截：被对方拉黑的用户不能关注对方（取关不受限）
+            if (userBlockService.isBlocked(followingUid, followerUid)) {
+                return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
+            }
             Follow follow = new Follow();
             follow.setFollowerUid(followerUid);
             follow.setFollowingUid(followingUid);
@@ -79,6 +90,28 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
                 .eq(Follow::getFollowerUid, followerUid)
                 .eq(Follow::getFollowingUid, followingUid)
                 .one() != null;
+    }
+
+    /**
+     * 删除两个用户之间任意方向的关注关系（拉黑时自动双向取关）
+     *
+     * @param uidA 用户A uid
+     * @param uidB 用户B uid
+     */
+    @Override
+    public void removeFollowBetween(Long uidA, Long uidB) {
+        if (uidA == null || uidB == null) {
+            return;
+        }
+        // 删除 A→B 与 B→A 两个方向的关注关系（复用 toggleFollow 已验证的简单条件删除）
+        lambdaUpdate()
+                .eq(Follow::getFollowerUid, uidA)
+                .eq(Follow::getFollowingUid, uidB)
+                .remove();
+        lambdaUpdate()
+                .eq(Follow::getFollowerUid, uidB)
+                .eq(Follow::getFollowingUid, uidA)
+                .remove();
     }
 
     /**

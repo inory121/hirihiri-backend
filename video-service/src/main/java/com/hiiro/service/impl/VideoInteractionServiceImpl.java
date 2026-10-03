@@ -60,6 +60,13 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
     @Override
     @Transactional
     public ResultData<String> toggleLike(Long uid, Long vid) {
+        // 拉黑拦截：被视频UP主拉黑的用户不能点赞/取消点赞该视频
+        Video selfCheckVideo = videoMapper.selectById(vid);
+        Long ownerUid = selfCheckVideo != null ? selfCheckVideo.getUid() : null;
+        if (ownerUid != null && !ownerUid.equals(uid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(ownerUid, uid).getData())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
+        }
         VideoLike existing = videoLikeMapper.selectOne(
                 new LambdaQueryWrapper<VideoLike>()
                         .eq(VideoLike::getUid, uid)
@@ -147,6 +154,13 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
     @Override
     @Transactional
     public ResultData<String> toggleDislike(Long uid, Long vid) {
+        // 拉黑拦截：被视频UP主拉黑的用户不能点踩/取消点踩该视频
+        Video selfCheckVideo = videoMapper.selectById(vid);
+        Long ownerUid = selfCheckVideo != null ? selfCheckVideo.getUid() : null;
+        if (ownerUid != null && !ownerUid.equals(uid)
+                && Boolean.TRUE.equals(userFeignApi.isBlocked(ownerUid, uid).getData())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，无法进行互动");
+        }
         VideoDislike existing = videoDislikeMapper.selectOne(
                 new LambdaQueryWrapper<VideoDislike>()
                         .eq(VideoDislike::getUid, uid)
@@ -191,9 +205,11 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
     @Override
     @Transactional
     public ResultData<String> toggleCoin(Long uid, Long vid, Integer count) {
-        // 每次投币固定 1 币（B站规则：单个用户对单个视频最多投 2 币，可分次投）
-        if (count == null || count != 1) {
+        // 投币枚数：允许 1 或 2（B站规则：单个用户对单个视频最多投 2 币）
+        if (count == null || count < 1) {
             count = 1;
+        } else if (count > 2) {
+            count = 2;
         }
 
         Video video = videoMapper.selectById(vid);
@@ -214,9 +230,13 @@ public class VideoInteractionServiceImpl implements VideoInteractionService {
         );
         int alreadyCoined = existing == null || existing.getCount() == null ? 0 : existing.getCount();
 
-        // 已投满 2 币（单个用户对单个视频最多 2 币）
-        if (alreadyCoined >= 2) {
+        // 单个用户对单个视频最多 2 币：按剩余额度收敛本次投币数，已投满则拒绝
+        int room = 2 - alreadyCoined;
+        if (room <= 0) {
             return ResultData.fail(ResultCodeEnum.BAD_REQUEST, "对本稿件的投币枚数已用完");
+        }
+        if (count > room) {
+            count = room;
         }
 
         // 检查观众硬币余额
