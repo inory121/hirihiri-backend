@@ -9,6 +9,7 @@ import com.hiiro.mapper.MessagePrivateMapper;
 import com.hiiro.mapper.MessageSessionMapper;
 import com.hiiro.service.FollowService;
 import com.hiiro.service.MessageService;
+import com.hiiro.service.UserBlockService;
 import com.hiiro.service.UserService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,9 @@ public class MessageServiceImpl implements MessageService {
 
     @Resource
     private FollowService followService;
+
+    @Resource
+    private UserBlockService userBlockService;
 
     @Resource
     private MessageSocketBroker messageSocketBroker;
@@ -89,7 +93,8 @@ public class MessageServiceImpl implements MessageService {
         if (targetUser == null) {
             return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "目标用户不存在");
         }
-
+        // 放宽：即使存在拉黑关系也允许打开会话，前端据此展示黑名单横幅；
+        // 真正的发送拦截仍由 sendPrivateMessage 负责（拉黑时拒绝、不落库）
         MessageSession session = getOrCreateSession(uid, targetUid);
         boolean following = followService.isFollowing(uid, targetUid);
         return ResultData.success(toSessionDTO(session, uid, targetUser, following));
@@ -133,6 +138,13 @@ public class MessageServiceImpl implements MessageService {
         UserDTO targetUser = userService.getUserByUid(dto.getTargetUid());
         if (targetUser == null) {
             return ResultData.fail(ResultCodeEnum.USER_NOT_EXIST, "目标用户不存在");
+        }
+        // 黑名单拦截：任一方拉黑即禁止发私信（文案与前端提示对齐）
+        if (userBlockService.isBlocked(dto.getTargetUid(), uid)) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "因对方隐私设置，暂无法给他发送聊天消息");
+        }
+        if (userBlockService.isBlocked(uid, dto.getTargetUid())) {
+            return ResultData.fail(ResultCodeEnum.FORBIDDEN, "你已拉黑了对方，请先将对方移出黑名单后才能聊天");
         }
 
         MessageSession session = getOrCreateSession(uid, dto.getTargetUid());
